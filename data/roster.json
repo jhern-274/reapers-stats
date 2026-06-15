@@ -1,0 +1,16 @@
+{
+  "players": [
+    {"name": "Adrien",  "positions": ["RCF"]},
+    {"name": "Hector",  "positions": ["2B"]},
+    {"name": "Aramis",  "positions": ["1B", "P"]},
+    {"name": "Gabby",   "positions": ["SS"]},
+    {"name": "Nivi",    "positions": ["LCF"]},
+    {"name": "Alex",    "positions": ["3B"]},
+    {"name": "Robert",  "positions": []},
+    {"name": "Jimmy",   "positions": ["LF", "C"]},
+    {"name": "Matt",    "positions": ["RF"]},
+    {"name": "Joe",     "positions": ["DH", "LF"]},
+    {"name": "Capi",    "positions": ["P", "1B"]},
+    {"name": "Ema",     "positions": ["C"]}
+  ]
+}

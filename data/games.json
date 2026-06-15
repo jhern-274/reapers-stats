@@ -1,0 +1,1400 @@
+{
+  "team_name": "Reapers",
+  "season": "2026",
+  "tournament": "Summer 2026",
+  "notes": "BB (walks) tracked separately. Toggle walk mode in sidebar to treat as hits or use standard OBP formula.",
+  "games": [
+    {
+      "game_id": 1,
+      "date": "2026-06-14",
+      "opponent": "Lazy Sundae",
+      "result": "W",
+      "team_runs": 15,
+      "opp_runs": 4,
+      "type": "tournament",
+      "lineup": [
+        {
+          "order": 1,
+          "player": "Adrien"
+        },
+        {
+          "order": 2,
+          "player": "Hector"
+        },
+        {
+          "order": 3,
+          "player": "Aramis"
+        },
+        {
+          "order": 4,
+          "player": "Gabby"
+        },
+        {
+          "order": 5,
+          "player": "Nivi"
+        },
+        {
+          "order": 6,
+          "player": "Alex"
+        },
+        {
+          "order": 7,
+          "player": "Robert"
+        },
+        {
+          "order": 8,
+          "player": "Jimmy"
+        },
+        {
+          "order": 9,
+          "player": "Matt"
+        },
+        {
+          "order": 10,
+          "player": "Joe"
+        },
+        {
+          "order": 11,
+          "player": "Capi"
+        },
+        {
+          "order": 12,
+          "player": "Ema"
+        }
+      ],
+      "substitutions": [],
+      "plate_appearances": [
+        {
+          "pa_num": 1,
+          "inning": 1,
+          "player": "Adrien",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 2,
+          "inning": 1,
+          "player": "Hector",
+          "outcome": "3B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 3,
+          "inning": 2,
+          "player": "Adrien",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 5,
+          "inning": 2,
+          "player": "Hector",
+          "outcome": "2B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 5,
+          "inning": 3,
+          "player": "Adrien",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 6,
+          "inning": 3,
+          "player": "Hector",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 7,
+          "inning": 1,
+          "player": "Aramis",
+          "outcome": "2B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 8,
+          "inning": 2,
+          "player": "Aramis",
+          "outcome": "HR_OTF",
+          "rbi": 2,
+          "run_scored": true
+        },
+        {
+          "pa_num": 9,
+          "inning": 3,
+          "player": "Aramis",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 10,
+          "inning": 1,
+          "player": "Gabby",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 11,
+          "inning": 2,
+          "player": "Gabby",
+          "outcome": "HR_OTF",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 12,
+          "inning": 3,
+          "player": "Gabby",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 13,
+          "inning": 1,
+          "player": "Nivi",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 14,
+          "inning": 2,
+          "player": "Nivi",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 15,
+          "inning": 3,
+          "player": "Nivi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 16,
+          "inning": 1,
+          "player": "Alex",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 17,
+          "inning": 2,
+          "player": "Alex",
+          "outcome": "2B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 18,
+          "inning": 3,
+          "player": "Alex",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 19,
+          "inning": 1,
+          "player": "Robert",
+          "outcome": "FC",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 20,
+          "inning": 2,
+          "player": "Robert",
+          "outcome": "HR_OTF",
+          "rbi": 2,
+          "run_scored": true
+        },
+        {
+          "pa_num": 21,
+          "inning": 3,
+          "player": "Robert",
+          "outcome": "FC",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 22,
+          "inning": 1,
+          "player": "Jimmy",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 23,
+          "inning": 2,
+          "player": "Jimmy",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 24,
+          "inning": 3,
+          "player": "Jimmy",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 25,
+          "inning": 1,
+          "player": "Matt",
+          "outcome": "FC",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 26,
+          "inning": 2,
+          "player": "Matt",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 27,
+          "inning": 3,
+          "player": "Matt",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 28,
+          "inning": 1,
+          "player": "Joe",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 29,
+          "inning": 2,
+          "player": "Joe",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 30,
+          "inning": 3,
+          "player": "Joe",
+          "outcome": "2B",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 31,
+          "inning": 1,
+          "player": "Capi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 32,
+          "inning": 2,
+          "player": "Capi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 33,
+          "inning": 3,
+          "player": "Capi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 34,
+          "inning": 1,
+          "player": "Ema",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 35,
+          "inning": 2,
+          "player": "Ema",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 36,
+          "inning": 3,
+          "player": "Ema",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        }
+      ]
+    },
+    {
+      "game_id": 2,
+      "date": "2026-06-14",
+      "opponent": "Gooners",
+      "result": "W",
+      "team_runs": 10,
+      "opp_runs": 4,
+      "type": "tournament",
+      "lineup": [
+        {
+          "order": 1,
+          "player": "Adrien"
+        },
+        {
+          "order": 2,
+          "player": "Hector"
+        },
+        {
+          "order": 3,
+          "player": "Aramis"
+        },
+        {
+          "order": 4,
+          "player": "Gabby"
+        },
+        {
+          "order": 5,
+          "player": "Nivi"
+        },
+        {
+          "order": 6,
+          "player": "Alex"
+        },
+        {
+          "order": 7,
+          "player": "Robert"
+        },
+        {
+          "order": 8,
+          "player": "Matt"
+        },
+        {
+          "order": 9,
+          "player": "Joe"
+        },
+        {
+          "order": 10,
+          "player": "Capi"
+        },
+        {
+          "order": 11,
+          "player": "Ema"
+        },
+        {
+          "order": 12,
+          "player": "Jimmy"
+        }
+      ],
+      "substitutions": [],
+      "plate_appearances": [
+        {
+          "pa_num": 1,
+          "inning": 1,
+          "player": "Adrien",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 2,
+          "inning": 3,
+          "player": "Adrien",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 4,
+          "inning": 1,
+          "player": "Hector",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 5,
+          "inning": 4,
+          "player": "Hector",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 6,
+          "inning": 5,
+          "player": "Hector",
+          "outcome": "HR_ITP",
+          "rbi": 2,
+          "run_scored": true
+        },
+        {
+          "pa_num": 7,
+          "inning": 1,
+          "player": "Aramis",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 8,
+          "inning": 1,
+          "player": "Gabby",
+          "outcome": "K",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 9,
+          "inning": 1,
+          "player": "Nivi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 10,
+          "inning": 2,
+          "player": "Alex",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 11,
+          "inning": 2,
+          "player": "Robert",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 12,
+          "inning": 2,
+          "player": "Matt",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 13,
+          "inning": 2,
+          "player": "Joe",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 14,
+          "inning": 3,
+          "player": "Capi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 15,
+          "inning": 3,
+          "player": "Ema",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 16,
+          "inning": 4,
+          "player": "Aramis",
+          "outcome": "2B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 17,
+          "inning": 4,
+          "player": "Gabby",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 18,
+          "inning": 4,
+          "player": "Nivi",
+          "outcome": "OUT",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 19,
+          "inning": 4,
+          "player": "Alex",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 20,
+          "inning": 4,
+          "player": "Robert",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 21,
+          "inning": 4,
+          "player": "Matt",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 22,
+          "inning": 4,
+          "player": "Joe",
+          "outcome": "1B",
+          "rbi": 2,
+          "run_scored": false
+        },
+        {
+          "pa_num": 23,
+          "inning": 4,
+          "player": "Capi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 24,
+          "inning": 5,
+          "player": "Ema",
+          "outcome": "E",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 24,
+          "inning": 5,
+          "player": "Adrien",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 25,
+          "inning": 5,
+          "player": "Aramis",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 26,
+          "inning": 5,
+          "player": "Gabby",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 27,
+          "inning": 5,
+          "player": "Nivi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 28,
+          "inning": 5,
+          "player": "Alex",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 29,
+          "inning": 5,
+          "player": "Robert",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 30,
+          "inning": 5,
+          "player": "Matt",
+          "outcome": "DP",
+          "rbi": 0,
+          "run_scored": false
+        }
+      ]
+    },
+    {
+      "game_id": 3,
+      "date": "2026-06-14",
+      "opponent": "Dirty South",
+      "result": "W",
+      "team_runs": 19,
+      "opp_runs": 15,
+      "type": "tournament",
+      "lineup": [
+        {
+          "order": 1,
+          "player": "Adrien"
+        },
+        {
+          "order": 2,
+          "player": "Hector"
+        },
+        {
+          "order": 3,
+          "player": "Aramis"
+        },
+        {
+          "order": 4,
+          "player": "Gabby"
+        },
+        {
+          "order": 5,
+          "player": "Nivi"
+        },
+        {
+          "order": 6,
+          "player": "Alex"
+        },
+        {
+          "order": 7,
+          "player": "Robert"
+        },
+        {
+          "order": 8,
+          "player": "Jimmy"
+        },
+        {
+          "order": 9,
+          "player": "Matt"
+        },
+        {
+          "order": 10,
+          "player": "Joe"
+        },
+        {
+          "order": 11,
+          "player": "Capi"
+        },
+        {
+          "order": 12,
+          "player": "Ema"
+        }
+      ],
+      "substitutions": [],
+      "plate_appearances": [
+        {
+          "pa_num": 1,
+          "inning": 1,
+          "player": "Adrien",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 2,
+          "inning": 2,
+          "player": "Adrien",
+          "outcome": "3B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 3,
+          "inning": 3,
+          "player": "Adrien",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 4,
+          "inning": 1,
+          "player": "Hector",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 5,
+          "inning": 2,
+          "player": "Hector",
+          "outcome": "3B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 6,
+          "inning": 3,
+          "player": "Hector",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 7,
+          "inning": 1,
+          "player": "Aramis",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 8,
+          "inning": 2,
+          "player": "Aramis",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 9,
+          "inning": 3,
+          "player": "Aramis",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 10,
+          "inning": 1,
+          "player": "Gabby",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 11,
+          "inning": 2,
+          "player": "Gabby",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 12,
+          "inning": 3,
+          "player": "Gabby",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 13,
+          "inning": 1,
+          "player": "Nivi",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 15,
+          "inning": 3,
+          "player": "Nivi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 16,
+          "inning": 1,
+          "player": "Alex",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 17,
+          "inning": 2,
+          "player": "Alex",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 18,
+          "inning": 3,
+          "player": "Alex",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 19,
+          "inning": 1,
+          "player": "Robert",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 20,
+          "inning": 3,
+          "player": "Robert",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 21,
+          "inning": 4,
+          "player": "Robert",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 22,
+          "inning": 1,
+          "player": "Matt",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 23,
+          "inning": 3,
+          "player": "Matt",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 24,
+          "inning": 4,
+          "player": "Matt",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 25,
+          "inning": 2,
+          "player": "Joe",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 26,
+          "inning": 3,
+          "player": "Joe",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 29,
+          "inning": 3,
+          "player": "Capi",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 29,
+          "inning": 2,
+          "player": "Capi",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 30,
+          "inning": 4,
+          "player": "Capi",
+          "outcome": "3B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 31,
+          "inning": 2,
+          "player": "Ema",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 32,
+          "inning": 3,
+          "player": "Jimmy",
+          "outcome": "2B",
+          "rbi": 2,
+          "run_scored": true
+        },
+        {
+          "pa_num": 33,
+          "inning": 4,
+          "player": "Jimmy",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 33,
+          "inning": 4,
+          "player": "Joe",
+          "outcome": "HR_OTF",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 33,
+          "inning": 2,
+          "player": "Nivi",
+          "outcome": "SF",
+          "rbi": 1,
+          "run_scored": false
+        }
+      ]
+    },
+    {
+      "game_id": 4,
+      "date": "2026-06-14",
+      "opponent": "Cocodrilos",
+      "result": "W",
+      "team_runs": 25,
+      "opp_runs": 14,
+      "type": "tournament",
+      "lineup": [
+        {
+          "order": 1,
+          "player": "Adrien"
+        },
+        {
+          "order": 2,
+          "player": "Hector"
+        },
+        {
+          "order": 3,
+          "player": "Aramis"
+        },
+        {
+          "order": 4,
+          "player": "Gabby"
+        },
+        {
+          "order": 5,
+          "player": "Nivi"
+        },
+        {
+          "order": 6,
+          "player": "Alex"
+        },
+        {
+          "order": 7,
+          "player": "Robert"
+        },
+        {
+          "order": 8,
+          "player": "Jimmy"
+        },
+        {
+          "order": 9,
+          "player": "Matt"
+        },
+        {
+          "order": 10,
+          "player": "Joe"
+        },
+        {
+          "order": 11,
+          "player": "Capi"
+        },
+        {
+          "order": 12,
+          "player": "Ema"
+        }
+      ],
+      "substitutions": [],
+      "plate_appearances": [
+        {
+          "pa_num": 1,
+          "inning": 1,
+          "player": "Adrien",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 2,
+          "inning": 2,
+          "player": "Adrien",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 3,
+          "inning": 3,
+          "player": "Adrien",
+          "outcome": "3B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 4,
+          "inning": 4,
+          "player": "Adrien",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 5,
+          "inning": 1,
+          "player": "Hector",
+          "outcome": "2B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 6,
+          "inning": 2,
+          "player": "Hector",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 7,
+          "inning": 3,
+          "player": "Hector",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 8,
+          "inning": 4,
+          "player": "Hector",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 9,
+          "inning": 1,
+          "player": "Aramis",
+          "outcome": "2B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 10,
+          "inning": 2,
+          "player": "Aramis",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 11,
+          "inning": 4,
+          "player": "Aramis",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 12,
+          "inning": 5,
+          "player": "Aramis",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 13,
+          "inning": 1,
+          "player": "Gabby",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 14,
+          "inning": 2,
+          "player": "Gabby",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 15,
+          "inning": 4,
+          "player": "Gabby",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 16,
+          "inning": 5,
+          "player": "Gabby",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 17,
+          "inning": 1,
+          "player": "Nivi",
+          "outcome": "3B",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 18,
+          "inning": 3,
+          "player": "Nivi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 19,
+          "inning": 4,
+          "player": "Nivi",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 20,
+          "inning": 5,
+          "player": "Nivi",
+          "outcome": "3B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 21,
+          "inning": 1,
+          "player": "Alex",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 22,
+          "inning": 3,
+          "player": "Alex",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 23,
+          "inning": 4,
+          "player": "Alex",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 24,
+          "inning": 5,
+          "player": "Alex",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 25,
+          "inning": 1,
+          "player": "Robert",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 27,
+          "inning": 4,
+          "player": "Robert",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 28,
+          "inning": 6,
+          "player": "Robert",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 29,
+          "inning": 1,
+          "player": "Matt",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 30,
+          "inning": 3,
+          "player": "Matt",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 31,
+          "inning": 4,
+          "player": "Matt",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 32,
+          "inning": 6,
+          "player": "Matt",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 33,
+          "inning": 2,
+          "player": "Joe",
+          "outcome": "HR_OTF",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 34,
+          "inning": 3,
+          "player": "Joe",
+          "outcome": "2B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 35,
+          "inning": 4,
+          "player": "Joe",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 36,
+          "inning": 6,
+          "player": "Joe",
+          "outcome": "OUT",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 37,
+          "inning": 2,
+          "player": "Capi",
+          "outcome": "HR_OTF",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 38,
+          "inning": 3,
+          "player": "Capi",
+          "outcome": "3B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 39,
+          "inning": 4,
+          "player": "Capi",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 40,
+          "inning": 6,
+          "player": "Capi",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 41,
+          "inning": 2,
+          "player": "Ema",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true
+        },
+        {
+          "pa_num": 42,
+          "inning": 3,
+          "player": "Jimmy",
+          "outcome": "SF",
+          "rbi": 1,
+          "run_scored": false
+        },
+        {
+          "pa_num": 43,
+          "inning": 4,
+          "player": "Jimmy",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true
+        },
+        {
+          "pa_num": 44,
+          "inning": 5,
+          "player": "Jimmy",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false
+        },
+        {
+          "pa_num": 44,
+          "inning": 3,
+          "player": "Robert",
+          "outcome": "HR_OTF",
+          "rbi": 2,
+          "run_scored": true
+        }
+      ]
+    }
+  ]
+}
