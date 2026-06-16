@@ -35,10 +35,12 @@ OUTCOME_DISPLAY = {
     "OUT":    "Out",
     "FC":     "Fielder's Choice",
     "E":      "Reached on Error",
-    "DP":     "Double Play",
+    "DP":     "Double Play (2 outs)",
     "SF":     "Sacrifice Fly",
+    "TP":     "Triple Play (3 outs)",
 }
 HIT_CODES = {"1B", "2B", "3B", "HR_OTF", "HR_ITP"}
+OUT_WEIGHTS = {"OUT": 1, "K": 1, "DP": 2, "TP": 3}  # outs recorded per outcome
 
 # ── Page config ───────────────────────────────────────────────────────────────
 
@@ -186,9 +188,53 @@ div[data-testid='stHorizontalBlock'] div[data-testid='stButton'] button
   { min-height: 44px !important; font-size: 10px !important; padding: 2px 1px !important; }
 }
 
-button[aria-label^='● ']
-{ background-color:rgba(50,205,80,0.22)!important;
-  border-color:rgba(50,205,80,0.55)!important; color:#7ee89a!important }
+/* ── Scoresheet cell colors by outcome ─────────────────────────────────────── */
+/* Hits — green */
+button[aria-label^="1B"],button[aria-label^="2B"],button[aria-label^="3B"],
+button[aria-label^="HR"],button[aria-label^="ITP"]
+{ background-color:rgba(50,205,80,0.10)!important;
+  border-color:rgba(50,205,80,0.35)!important; color:#8ee89a!important }
+/* Outs — red */
+button[aria-label^="OUT"],button[aria-label^="K"],
+button[aria-label^="DP"],button[aria-label^="TP"]
+{ background-color:rgba(220,60,60,0.20)!important;
+  border-color:rgba(220,60,60,0.60)!important; color:#f09898!important }
+/* Walks / reach — blue */
+button[aria-label^="BB"],button[aria-label^="E"],
+button[aria-label^="FC"],button[aria-label^="SF"]
+{ background-color:rgba(60,140,220,0.10)!important;
+  border-color:rgba(60,140,220,0.30)!important; color:#88bbf0!important }
+/* Run scored overrides all — bright green (chip label ends with ●) */
+button[aria-label$='●']
+{ background-color:rgba(50,205,80,0.28)!important;
+  border-color:rgba(50,205,80,0.65)!important; color:#b0f5b0!important }
+
+/* ── At-bat dialog outcome grid ─────────────────────────────────────────────── */
+[role="dialog"] div[data-testid="stButton"] button {
+  min-height: 58px !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  border-radius: 12px !important;
+  padding: 6px 4px !important;
+  letter-spacing: 0.3px !important;
+}
+/* Category accent colors in dialog (unselected) */
+[role="dialog"] button[aria-label="1B"],
+[role="dialog"] button[aria-label="2B"],
+[role="dialog"] button[aria-label="3B"],
+[role="dialog"] button[aria-label="HR"],
+[role="dialog"] button[aria-label="ITP"]
+{ border-color:rgba(50,205,80,0.55)!important; color:#7ee89a!important }
+[role="dialog"] button[aria-label="OUT"],
+[role="dialog"] button[aria-label="K"],
+[role="dialog"] button[aria-label="DP"],
+[role="dialog"] button[aria-label="TP"]
+{ border-color:rgba(220,60,60,0.55)!important; color:#f09898!important }
+[role="dialog"] button[aria-label="BB"],
+[role="dialog"] button[aria-label="E"],
+[role="dialog"] button[aria-label="FC"],
+[role="dialog"] button[aria-label="SF"]
+{ border-color:rgba(60,140,220,0.55)!important; color:#88bbf0!important }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -296,6 +342,33 @@ def pas_to_stat_row(pas: list[dict], walks_as_hits: bool) -> dict:
         s["R"]   += int(pa.get("run_scored", False))
         s["RBI"] += int(pa.get("rbi", 0))
     return s
+
+
+def _active_lineup_at(lineup: list, substitutions: list, inning: int) -> list:
+    """Players in batting-order sequence after applying subs with inning <= `inning`."""
+    slot = {s["order"]: s["player"] for s in lineup}
+    for sub in sorted(substitutions, key=lambda s: s["inning"]):
+        if sub["inning"] <= inning:
+            for ord_n, pl in list(slot.items()):
+                if pl == sub["out"]:
+                    slot[ord_n] = sub["in"]
+                    break
+    return [p for _, p in sorted(slot.items())]
+
+
+def _active_bench_at(lineup: list, bench_initial: list,
+                     substitutions: list, inning: int = 9999) -> tuple:
+    """(active_set, bench_set) after subs with inning <= `inning`."""
+    active = {s["player"] for s in lineup}
+    bench  = set(bench_initial)
+    for sub in sorted(substitutions, key=lambda s: s["inning"]):
+        if sub["inning"] <= inning:
+            active.discard(sub["out"])
+            bench.add(sub["out"])
+            bench.discard(sub["in"])
+            active.add(sub["in"])
+    return active, bench
+
 
 def add_derived(df: pd.DataFrame, walks_as_hits: bool) -> pd.DataFrame:
     df = df.copy()
@@ -514,11 +587,11 @@ totals = season_totals(pg, walks_as_hits) if not pg.empty else pd.DataFrame()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 if page == "📊 Dashboard":
-    wins   = sum(1 for g in games if g["result"] == "W")
-    losses = sum(1 for g in games if g["result"] == "L")
-    ties   = sum(1 for g in games if g["result"] == "T")
-    rf     = sum(g["team_runs"] for g in games)
-    ra     = sum(g["opp_runs"]  for g in games)
+    wins   = sum(1 for g in games if g.get("result") == "W")
+    losses = sum(1 for g in games if g.get("result") == "L")
+    ties   = sum(1 for g in games if g.get("result") == "T")
+    rf     = sum(g.get("team_runs") or 0 for g in games)
+    ra     = sum(g.get("opp_runs")  or 0 for g in games)
     record = f"{wins}-{losses}" + (f"-{ties}" if ties else "")
 
     tourn_label = "All Tournaments"
@@ -775,7 +848,8 @@ if page == "📊 Dashboard":
     with tab_log:
         glog = pd.DataFrame([{
             "Game": g["game_id"], "Date": g["date"], "Opponent": g["opponent"],
-            "Result": g["result"], "Score": f'{g["team_runs"]}-{g["opp_runs"]}',
+            "Result": g.get("result") or "Live",
+            "Score": (f'{g["team_runs"]}-{g["opp_runs"]}' if g.get("result") else "In progress"),
             "Type": g.get("type", "regular").title(),
             "Tournament": next((t["name"] for t in tournaments if t["id"] == g.get("tournament_id")), "—"),
         } for g in games])
@@ -870,29 +944,39 @@ elif page == "⚾ Log Game":
     if "lg_game" not in st.session_state:
         st.session_state.lg_game = None
 
-    if st.session_state.lg_game is None:
-        st.markdown("#### Start a new game")
+    # ── Create new game ───────────────────────────────────────────────────────────
 
-        tourn_list = games_data.get("tournaments", [])
+    if st.session_state.lg_game is None:
+        game_mode = st.radio(
+            "Mode",
+            ["▶  Live — log as you play", "📋  Log a finished game"],
+            horizontal=True, label_visibility="collapsed",
+        )
+        is_live = "Live" in game_mode
+        st.markdown(f"#### {'Start a live game' if is_live else 'Log a finished game'}")
+
+        tourn_list    = games_data.get("tournaments", [])
         tourn_display = [t["name"] for t in tourn_list]
 
+        result = "W"; team_runs = 0; opp_runs = 0  # defaults for finished path
+
         with st.form("new_game"):
-            c1, c2, c3 = st.columns(3)
+            c1, c2 = st.columns(2)
             opponent  = c1.text_input("Opponent")
             game_date = c2.date_input("Date", value=date.today())
-            game_type = c3.selectbox("Type", ["tournament", "regular", "playoff", "scrimmage"])
-            c4, c5, c6 = st.columns(3)
-            result    = c4.selectbox("Result", ["W", "L", "T"])
-            team_runs = c5.number_input("Your runs", min_value=0, value=0, step=1)
-            opp_runs  = c6.number_input("Opp runs",  min_value=0, value=0, step=1)
+            game_type = st.selectbox("Type", ["tournament", "regular", "playoff", "scrimmage"])
 
-            # Tournament selector
+            if not is_live:
+                r1, r2, r3 = st.columns(3)
+                result    = r1.selectbox("Result", ["W", "L", "T"])
+                team_runs = r2.number_input("Your runs", min_value=0, value=0, step=1)
+                opp_runs  = r3.number_input("Opp runs",  min_value=0, value=0, step=1)
+
             default_tidx = 0
             if active_tournament_id:
                 for i, t in enumerate(tourn_list):
                     if t["id"] == active_tournament_id:
-                        default_tidx = i
-                        break
+                        default_tidx = i; break
 
             if tourn_display:
                 tourn_choice = st.selectbox(
@@ -909,7 +993,7 @@ elif page == "⚾ Log Game":
                 new_tourn_name = nc1.text_input("Tournament name", placeholder="e.g. Summer 2026")
                 new_tourn_year = nc2.text_input("Year", value=str(date.today().year))
 
-            go = st.form_submit_button("Create Game →")
+            go = st.form_submit_button("▶ Start Game" if is_live else "Create Game →")
 
         if go:
             if not opponent.strip():
@@ -920,8 +1004,7 @@ elif page == "⚾ Log Game":
                 if tourn_choice == "+ New tournament":
                     tourn_id = _slug(new_tourn_name.strip(), {t["id"] for t in tourn_list})
                     tourn_list.append({
-                        "id": tourn_id,
-                        "name": new_tourn_name.strip(),
+                        "id": tourn_id, "name": new_tourn_name.strip(),
                         "year": new_tourn_year.strip() or str(date.today().year),
                     })
                     games_data["tournaments"] = tourn_list
@@ -933,224 +1016,504 @@ elif page == "⚾ Log Game":
                 ids = [g["game_id"] for g in all_games]
                 new_id = max(ids) + 1 if ids else 1
                 st.session_state.lg_game = {
-                    "game_id": new_id,
-                    "date": str(game_date),
-                    "opponent": opponent.strip(),
-                    "result": result,
-                    "team_runs": int(team_runs),
-                    "opp_runs": int(opp_runs),
-                    "type": game_type,
+                    "game_id":   new_id,
+                    "date":      str(game_date),
+                    "opponent":  opponent.strip(),
+                    "result":    None if is_live else result,
+                    "team_runs": None if is_live else int(team_runs),
+                    "opp_runs":  None if is_live else int(opp_runs),
+                    "type":      game_type,
+                    "live_mode": is_live,
                     "tournament_id": tourn_id,
-                    "lineup": [],
+                    "current_inning": 1,
+                    "lineup":        [],
+                    "bench_players": [],
                     "substitutions": [],
                     "plate_appearances": [],
                 }
+                st.session_state.lg_current_inning = 1
                 st.rerun()
+
+    # ── In-progress / editing ─────────────────────────────────────────────────────
 
     else:
         g = st.session_state.lg_game
-
         editing_id = st.session_state.get("editing_game_id")
-        mode_label = "Editing" if editing_id else "In progress"
-        g_tourn = next((t["name"] for t in tournaments if t["id"] == g.get("tournament_id", "")), "")
+        g_tourn    = next((t["name"] for t in tournaments if t["id"] == g.get("tournament_id", "")), "")
 
-        st.markdown(
-            f'<div class="recap">'
-            f'<div class="title">{mode_label} · {g["date"]}'
-            f'{(" · " + g_tourn) if g_tourn else ""}</div>'
-            f'<div class="score">{g["result"]} {g["team_runs"]}–{g["opp_runs"]} vs {g["opponent"]}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        # Live score strip (always editable for live games)
+        if g.get("live_mode"):
+            sr0, sr1, sr2, sr3 = st.columns([4, 1, 1, 1])
+            sr0.markdown(
+                f"<div style='padding:8px 0;font-size:16px;font-weight:700'>"
+                f"🔴 <span style='color:#FF1493'>LIVE</span>"
+                f" vs {g['opponent']}"
+                f"{'  ·  ' + g_tourn if g_tourn else ''}"
+                f"<span style='opacity:0.45;font-size:12px;margin-left:8px'>{g['date']}</span></div>",
+                unsafe_allow_html=True,
+            )
+            auto_our = sum(1 for pa in g["plate_appearances"] if pa.get("run_scored"))
+            g["team_runs"] = auto_our
+            sr1.metric("Us", auto_our)
+            g["opp_runs"]  = sr2.number_input("Them", min_value=0, value=g.get("opp_runs")  or 0, step=1, key="live_opp")
+            res_opts = ["W", "L", "T"]
+            g["result"] = sr3.selectbox("Result", res_opts,
+                                        index=res_opts.index(g["result"]) if g.get("result") in res_opts else 0,
+                                        key="live_res")
+        else:
+            mode_label = "Editing" if editing_id else "In progress"
+            score_str  = f"{g.get('result','?')} {g.get('team_runs','?')}–{g.get('opp_runs','?')}"
+            st.markdown(
+                f'<div class="recap">'
+                f'<div class="title">{mode_label} · {g["date"]}'
+                f'{("  ·  " + g_tourn) if g_tourn else ""}</div>'
+                f'<div class="score">{score_str} vs {g["opponent"]}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
         tab_lu, tab_ab, tab_sv = st.tabs(["1 · Lineup", "2 · Scoresheet", "3 · Review & Save"])
 
+        # ── Tab 1: Lineup ─────────────────────────────────────────────────────────
+
         with tab_lu:
-            if not g["lineup"]:
-                g["lineup"] = [{"order": i + 1, "player": p} for i, p in enumerate(player_names)]
+            # Seed lineup/bench from roster on first open
+            if not g["lineup"] and not g.get("bench_players"):
+                g["lineup"]        = [{"order": i + 1, "player": p} for i, p in enumerate(player_names)]
+                g["bench_players"] = []
 
-            ordered = [s["player"] for s in sorted(g["lineup"], key=lambda x: x["order"])]
+            lineup_players = [s["player"] for s in sorted(g["lineup"], key=lambda x: x["order"])]
+            bench_players  = list(g.get("bench_players", []))
 
+            # Any new roster players land on bench by default
             for p in player_names:
-                if p not in ordered:
-                    ordered.append(p)
+                if p not in lineup_players and p not in bench_players:
+                    bench_players.append(p)
+            g["bench_players"] = bench_players
 
-            st.markdown("**Drag players to set the batting order:**")
-            st.caption("Grab any name and drag it up or down. Order saves automatically.")
+            st.markdown("**Batting order** — drag to reorder")
+            _lu_key = "ls_" + "_".join(p[:5].replace(" ", "") for p in lineup_players)
+            new_order = sort_items(lineup_players, direction="vertical", key=_lu_key)
+            if new_order != lineup_players:
+                g["lineup"] = [{"order": i + 1, "player": p}
+                                for i, p in enumerate(new_order)]
+                st.rerun()
 
-            new_order = sort_items(ordered, direction="vertical", key="lineup_sort")
+            if lineup_players:
+                bench_sel = st.pills(
+                    "Tap a player to bench them",
+                    lineup_players,
+                    key="lu_bench_sel",
+                )
+                if bench_sel:
+                    g["lineup"] = [{"order": j + 1, "player": x["player"]}
+                                   for j, x in enumerate(
+                                       sorted([x for x in g["lineup"]
+                                               if x["player"] != bench_sel],
+                                              key=lambda x: x["order"]))]
+                    bench_players.append(bench_sel)
+                    g["bench_players"] = bench_players
+                    st.session_state.pop("lu_bench_sel", None)
+                    st.rerun()
 
-            if new_order != ordered:
-                g["lineup"] = [{"order": i + 1, "player": p} for i, p in enumerate(new_order)]
-                ordered = new_order
-
-            st.markdown("---")
-            st.markdown("**Add substitution:**")
-            with st.form("add_sub"):
-                cs1, cs2, cs3 = st.columns(3)
-                out_p   = cs1.selectbox("Out", ordered if ordered else player_names)
-                in_p    = cs2.selectbox("In", player_names)
-                sub_inn = cs3.number_input("Inning", min_value=1, value=1, step=1)
-                if st.form_submit_button("Add Sub"):
-                    if out_p == in_p:
-                        st.error("In and Out players must be different.")
-                    else:
-                        g["substitutions"].append({"out": out_p, "in": in_p, "inning": int(sub_inn)})
-                        if in_p not in ordered:
-                            ordered.append(in_p)
-                            g["lineup"].append({"order": len(ordered), "player": in_p})
-                        st.success(f"{in_p} in for {out_p} (inning {sub_inn})")
+            if bench_players:
+                st.markdown("---")
+                st.markdown("**Bench**")
+                for player in bench_players:
+                    lc, rc = st.columns([5, 1])
+                    lc.markdown(f"<div style='padding:7px 0;opacity:0.5'>{player}</div>",
+                                unsafe_allow_html=True)
+                    if rc.button("⬆", key=f"to_lineup_{player}", help="Add to lineup"):
+                        bench_players.remove(player)
+                        g["bench_players"] = bench_players
+                        next_ord = max((x["order"] for x in g["lineup"]), default=0) + 1
+                        g["lineup"].append({"order": next_ord, "player": player})
                         st.rerun()
 
-            if g["substitutions"]:
-                st.markdown("**Substitutions:**")
-                for sub in g["substitutions"]:
-                    st.markdown(f"- Inning {sub['inning']}: **{sub['in']}** in for {sub['out']}")
+        # ── Tab 2: Scoresheet ─────────────────────────────────────────────────────
 
         with tab_ab:
             pas = g["plate_appearances"]
-            order_map    = {s["player"]: s["order"] for s in g["lineup"]}
-            lineup_order = sorted(player_names, key=lambda p: order_map.get(p, 99))
-            cell_map     = {(pa["player"], pa.get("inning", 1)): pa for pa in pas}
 
-            if "lg_innings" not in st.session_state:
-                st.session_state["lg_innings"] = 7
-            ni_col, _ = st.columns([1, 5])
-            n_innings = ni_col.number_input(
-                "Innings", min_value=1, max_value=15,
-                value=st.session_state["lg_innings"], step=1,
-            )
-            st.session_state["lg_innings"] = int(n_innings)
-            innings = list(range(1, int(n_innings) + 1))
+            # cur_inn must be known before lineup computation (subs are inning-aware)
+            if "lg_current_inning" not in st.session_state:
+                st.session_state.lg_current_inning = g.get("current_inning", 1)
+            cur_inn = st.session_state.lg_current_inning
+
+            lineup_order = _active_lineup_at(g["lineup"], g["substitutions"], cur_inn)
+            order_map    = {p: (i + 1) for i, p in enumerate(lineup_order)}
+            _known_all   = ([s["player"] for s in g["lineup"]]
+                            + g.get("bench_players", [])
+                            + [s["in"] for s in g["substitutions"]])
+            _seen_set    = set()
+            bench_ab     = [p for p in _known_all
+                            if p not in set(lineup_order)
+                            and not (p in _seen_set or _seen_set.add(p))]
 
             CELL_SHORT = {
-                "1B": "1B", "2B": "2B", "3B": "3B",
-                "HR_OTF": "HR", "HR_ITP": "ITP",
-                "BB": "BB", "K": "K", "OUT": "OUT",
-                "FC": "FC", "E": "E", "DP": "DP", "SF": "SF",
+                "1B":"1B","2B":"2B","3B":"3B","HR_OTF":"HR","HR_ITP":"ITP",
+                "BB":"BB","K":"K","OUT":"OUT","FC":"FC","E":"E","DP":"DP","SF":"SF",
+                "TP":"TP",
             }
+            _OUTCOME_ROWS = [
+                ["1B",    "2B",  "3B",  "HR_OTF"      ],
+                ["HR_ITP","BB",  "E",   "FC"           ],
+                ["OUT",   "K",   "DP",  "SF",  "TP"   ],
+            ]
+            _BTN_LABEL         = {k: CELL_SHORT[k] for k in CELL_SHORT}
+            _BTN_LABEL["DP"]   = "DP (2)"
+            _BTN_LABEL["TP"]   = "TP (3)"
+            _ROW_CAPTION       = ["Hits", "On Base", "Outs"]
 
+            # ── At-bat dialog ──────────────────────────────────────────────────────
             @st.dialog("Log At-Bat")
-            def _ab_dialog(sel_player, sel_inning, existing, cell_map_ref):
-                cell_key = f"{sel_player}__{sel_inning}"
+            def _ab_dialog(sel_player, sel_inning, existing, pa_count_in_inn):
+                pa_label = f"PA #{pa_count_in_inn + 1} this inning" if existing is None else "Edit at-bat"
+                cell_key = (f"{sel_player}__{sel_inning}__"
+                            f"{existing['pa_num'] if existing else 'new'}")
+                out_key  = f"dlg_out_{cell_key}"
+                if out_key not in st.session_state:
+                    st.session_state[out_key] = existing["outcome"] if existing else None
+
+                cur_code = st.session_state[out_key]
+                cur_name = OUTCOME_DISPLAY.get(cur_code, "") if cur_code else ""
+                status_html = (
+                    f"<span style='background:rgba(255,20,147,0.18);color:#ff69b4;"
+                    f"padding:3px 10px;border-radius:99px;font-size:13px;font-weight:700'>"
+                    f"{cur_name}</span>" if cur_code else
+                    "<span style='opacity:0.45;font-size:13px'>— select below —</span>"
+                )
                 st.markdown(
-                    f"<div style='font-size:18px;font-weight:800;margin-bottom:4px'>"
+                    f"<div style='margin-bottom:14px'>"
+                    f"<div style='font-size:20px;font-weight:800;margin-bottom:4px'>"
                     f"<span style='color:#FF1493'>{sel_player}</span>"
-                    f"&nbsp;·&nbsp;Inning {sel_inning}</div>",
+                    f"&nbsp;<span style='opacity:0.4;font-size:14px'>Inn {sel_inning} · {pa_label}</span></div>"
+                    f"{status_html}</div>",
                     unsafe_allow_html=True,
                 )
-                if existing:
-                    st.caption(
-                        f"Currently: **{OUTCOME_DISPLAY[existing['outcome']]}** · "
-                        f"{existing.get('rbi', 0)} RBI · "
-                        f"{'Scored ✓' if existing.get('run_scored') else 'Did not score'}"
+
+                for row_idx, row_codes in enumerate(_OUTCOME_ROWS):
+                    st.caption(_ROW_CAPTION[row_idx])
+                    cols = st.columns(len(row_codes))
+                    for col_idx, oc in enumerate(row_codes):
+                        def _pick_oc(code=oc, okey=out_key):
+                            st.session_state[okey] = code
+                        cols[col_idx].button(
+                            _BTN_LABEL[oc],
+                            key=f"dlg_btn_{cell_key}_{oc}",
+                            type="primary" if cur_code == oc else "secondary",
+                            use_container_width=True, on_click=_pick_oc,
+                        )
+
+                outcome = st.session_state.get(out_key)
+                is_hr   = outcome in {"HR_OTF", "HR_ITP"}
+                st.markdown("<div style='margin-top:10px'></div>", unsafe_allow_html=True)
+
+                if is_hr:
+                    hr_rbi_key = f"hr_rbi_{cell_key}"
+                    if hr_rbi_key not in st.session_state:
+                        st.session_state[hr_rbi_key] = existing.get("rbi", 1) if existing else 1
+                    st.markdown("**Runs scored on this HR:**")
+                    hr_cols = st.columns(4)
+                    for rv, rl in [(1,"Solo"),(2,"2-Run"),(3,"3-Run"),(4,"Grand Slam")]:
+                        def _pick_hr_rbi(v=rv, k=hr_rbi_key):
+                            st.session_state[k] = v
+                        hr_cols[rv - 1].button(
+                            rl, key=f"hr_rbi_{cell_key}_{rv}",
+                            type="primary" if st.session_state[hr_rbi_key] == rv else "secondary",
+                            use_container_width=True, on_click=_pick_hr_rbi,
+                        )
+                    rbi = st.session_state[hr_rbi_key]
+                    run_scored = True
+                    st.markdown(
+                        "<div style='font-size:12px;color:#4CAF50;margin-top:6px'>"
+                        "● Run scored automatically</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    cr, cs2 = st.columns(2)
+                    rbi = cr.number_input("RBIs", min_value=0, max_value=4,
+                                          value=existing.get("rbi", 0) if existing else 0,
+                                          step=1, key=f"dlg_rbi_{cell_key}")
+                    run_scored = cs2.checkbox(
+                        "Run scored",
+                        value=existing.get("run_scored", False) if existing else False,
+                        key=f"dlg_run_{cell_key}",
                     )
 
-                outcome = st.pills(
-                    "Outcome",
-                    options=list(OUTCOME_DISPLAY.keys()),
-                    format_func=lambda k: OUTCOME_DISPLAY[k],
-                    default=existing["outcome"] if existing else None,
-                    key=f"dlg_outcome_{cell_key}",
-                )
-
-                cr, cs2 = st.columns(2)
-                rbi = cr.number_input(
-                    "RBIs", min_value=0, max_value=4,
-                    value=existing.get("rbi", 0) if existing else 0,
-                    step=1, key=f"dlg_rbi_{cell_key}",
-                )
-                run_scored = cs2.checkbox(
-                    "Run scored",
-                    value=existing.get("run_scored", False) if existing else False,
-                    key=f"dlg_run_{cell_key}",
-                )
-
                 cb1, cb2 = st.columns(2)
-                if cb1.button("✓  Save", type="primary", use_container_width=True, key=f"dlg_save_{cell_key}"):
+                if cb1.button("✓  Save", type="primary", use_container_width=True,
+                              key=f"dlg_save_{cell_key}"):
                     if not outcome:
                         st.warning("Select an outcome first.")
                     else:
-                        g["plate_appearances"] = [
-                            p for p in g["plate_appearances"]
-                            if not (p["player"] == sel_player and p.get("inning") == sel_inning)
-                        ]
+                        # Edit: remove only the specific PA being replaced
+                        if existing:
+                            g["plate_appearances"] = [
+                                p for p in g["plate_appearances"]
+                                if p.get("pa_num") != existing["pa_num"]
+                            ]
+                        new_num = max((p.get("pa_num", 0) for p in g["plate_appearances"]), default=0) + 1
                         g["plate_appearances"].append({
-                            "pa_num":     len(g["plate_appearances"]) + 1,
-                            "inning":     sel_inning,
-                            "player":     sel_player,
-                            "outcome":    outcome,
-                            "rbi":        int(rbi),
-                            "run_scored": bool(run_scored),
+                            "pa_num": new_num, "inning": sel_inning,
+                            "player": sel_player, "outcome": outcome,
+                            "rbi": int(rbi), "run_scored": bool(run_scored),
                         })
-                        st.session_state["ss_sel"] = None
+                        st.session_state.pop(out_key, None)
+                        st.session_state["ss_sel"] = st.session_state["ss_edit_pa"] = None
                         st.rerun()
 
-                if existing and cb2.button("✕  Clear", use_container_width=True, key=f"dlg_clear_{cell_key}"):
+                if existing and cb2.button("✕  Clear", use_container_width=True,
+                                           key=f"dlg_clear_{cell_key}"):
                     g["plate_appearances"] = [
                         p for p in g["plate_appearances"]
-                        if not (p["player"] == sel_player and p.get("inning") == sel_inning)
+                        if p.get("pa_num") != existing["pa_num"]
                     ]
-                    st.session_state["ss_sel"] = None
+                    st.session_state.pop(out_key, None)
+                    st.session_state["ss_sel"] = st.session_state["ss_edit_pa"] = None
                     st.rerun()
 
-            def _pick_cell(p, i):
-                st.session_state["ss_sel"] = (p, i)
-
+            # Open dialog if a cell is selected
             sel = st.session_state.get("ss_sel")
-
             if sel:
-                sel_player, sel_inning = sel
-                existing = cell_map.get((sel_player, sel_inning))
-                _ab_dialog(sel_player, sel_inning, existing, cell_map)
+                sp, si = sel
+                edit_pa      = st.session_state.get("ss_edit_pa")
+                pa_cnt_in_inn = sum(1 for pa in pas
+                                    if pa["player"] == sp and pa.get("inning") == si)
+                _ab_dialog(sp, si, edit_pa, pa_cnt_in_inn)
 
-            st.caption("Tap any cell to log that at-bat. Use landscape mode on phone for best experience.")
-
-            hcols = st.columns([2] + [1] * len(innings))
-            hcols[0].markdown(
-                "<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
-                "letter-spacing:.5px;opacity:.5;padding-bottom:4px'>Player</div>",
+            # ── Inning navigation ──────────────────────────────────────────────────
+            inn_ab_count = sum(1 for pa in pas if pa.get("inning") == cur_inn)
+            nav_prev, nav_mid, nav_next = st.columns([1, 5, 2])
+            if nav_prev.button("◀", key="inn_prev", disabled=(cur_inn <= 1)):
+                st.session_state.lg_current_inning -= 1
+                st.rerun()
+            nav_mid.markdown(
+                f"<div style='text-align:center;padding:6px 0'>"
+                f"<span style='font-size:22px;font-weight:800'>Inning {cur_inn}</span>"
+                f"<span style='opacity:0.4;font-size:13px;margin-left:10px'>{inn_ab_count} AB</span>"
+                f"</div>",
                 unsafe_allow_html=True,
             )
-            for idx, inn in enumerate(innings):
-                hcols[idx + 1].markdown(
-                    f"<div style='text-align:center;font-size:11px;font-weight:700;"
-                    f"text-transform:uppercase;letter-spacing:.5px;opacity:.5;"
-                    f"padding-bottom:4px'>{inn}</div>",
-                    unsafe_allow_html=True,
-                )
+            if nav_next.button("▶ Next inn.", key="inn_next", type="primary"):
+                st.session_state.lg_current_inning += 1
+                g["current_inning"] = max(g.get("current_inning", 1),
+                                          st.session_state.lg_current_inning)
+                st.rerun()
+
+            # ── 3-outs prompt ──────────────────────────────────────────────────────
+            outs_this_inn = sum(
+                OUT_WEIGHTS.get(pa.get("outcome"), 0)
+                for pa in pas if pa.get("inning") == cur_inn
+            )
+            if outs_this_inn >= 3:
+                inn_runs   = sum(1 for pa in pas
+                                 if pa.get("inning") == cur_inn and pa.get("run_scored"))
+                total_runs = sum(1 for pa in g["plate_appearances"] if pa.get("run_scored"))
+                run_detail = (f"  ·  {inn_runs} run{'s' if inn_runs != 1 else ''} this inning"
+                              f"  ·  {total_runs} total")
+                pc, bc = st.columns([3, 1])
+                pc.success(f"3 outs — inning {cur_inn} over{run_detail}")
+                if bc.button(f"→ Inning {cur_inn + 1}", key="three_outs_next", type="primary"):
+                    st.session_state.lg_current_inning = cur_inn + 1
+                    g["current_inning"] = max(g.get("current_inning", 1), cur_inn + 1)
+                    st.rerun()
+
             st.markdown(
-                "<hr style='margin:0 0 2px 0;border-color:rgba(255,20,147,0.2)'>",
+                "<div style='text-align:right;font-size:11px;opacity:0.4;margin:2px 0 4px'>"
+                "<span style='color:#FF1493'>●</span> = leads off this inning</div>",
                 unsafe_allow_html=True,
             )
+            st.markdown("<hr style='margin:2px 0 10px;border-color:rgba(255,20,147,0.2)'>",
+                        unsafe_allow_html=True)
 
-            for player in lineup_order:
-                rcols = st.columns([2] + [1] * len(innings))
-                is_active = sel and sel[0] == player
-                rcols[0].markdown(
-                    f"<div style='font-weight:700;padding-top:6px;"
-                    f"color:{'#FF1493' if is_active else 'inherit'}'>{player}</div>",
+            # ── Previous inning recap strip ────────────────────────────────────────
+            if cur_inn > 1:
+                prev_inn     = cur_inn - 1
+                all_prev_pas = sorted(
+                    [pa for pa in pas if pa.get("inning") == prev_inn],
+                    key=lambda p: p.get("pa_num", 0),
+                )
+                prev_pas = all_prev_pas[-3:]  # last 3 ABs only
+                if prev_pas:
+                    prev_runs = sum(1 for pa in all_prev_pas if pa.get("run_scored"))
+                    chip_parts = []
+                    for pa in prev_pas:
+                        lbl   = CELL_SHORT.get(pa["outcome"], pa["outcome"])
+                        pname = pa["player"].split()[0]
+                        if pa.get("rbi"):        lbl += f"+{pa['rbi']}"
+                        if pa.get("run_scored"): lbl += "●"
+                        cat = ("hit" if pa["outcome"] in HIT_CODES
+                               else "out" if pa["outcome"] in OUT_WEIGHTS else "base")
+                        fg_bg = {
+                            "hit":  ("#8ee89a", "rgba(50,205,80,0.12)",  "rgba(50,205,80,0.35)"),
+                            "out":  ("#f09898", "rgba(220,60,60,0.10)",  "rgba(220,60,60,0.30)"),
+                            "base": ("#88bbf0", "rgba(60,140,220,0.10)", "rgba(60,140,220,0.30)"),
+                        }
+                        fg, bg, border = (
+                            ("#b0f5b0", "rgba(50,205,80,0.25)", "rgba(50,205,80,0.6)")
+                            if pa.get("run_scored") else fg_bg[cat]
+                        )
+                        chip_parts.append(
+                            f"<span style='white-space:nowrap;margin-right:8px'>"
+                            f"<span style='font-size:11px;opacity:0.5;margin-right:3px'>{pname}</span>"
+                            f"<span style='background:{bg};color:{fg};border:1px solid {border};"
+                            f"border-radius:99px;padding:1px 8px;font-size:12px;font-weight:700'>"
+                            f"{lbl}</span></span>"
+                        )
+
+                    run_txt = f"{prev_runs} run{'s' if prev_runs != 1 else ''}"
+                    ab_txt  = f"{len(all_prev_pas)} AB"
+                    st.markdown(
+                        f"<div style='background:rgba(255,255,255,0.04);"
+                        f"border:1px solid rgba(255,255,255,0.1);"
+                        f"border-radius:8px;padding:8px 12px;margin-bottom:10px'>"
+                        f"<div style='font-size:11px;font-weight:700;text-transform:uppercase;"
+                        f"letter-spacing:.5px;opacity:0.4;margin-bottom:6px'>"
+                        f"← Inning {prev_inn} · {run_txt} · {ab_txt}</div>"
+                        f"<div style='display:flex;flex-wrap:wrap;align-items:center;line-height:2.4'>"
+                        f"{''.join(chip_parts)}</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+            # ── Player rows ────────────────────────────────────────────────────────
+            inning_full  = outs_this_inn >= 3
+
+            # Find who leads off this inning (use the lineup from the inning the last AB occurred in)
+            leadoff_this_inn = None
+            if lineup_order:
+                prior_sorted = sorted(
+                    [pa for pa in pas if pa.get("inning", 0) < cur_inn],
+                    key=lambda p: (p.get("inning", 0), p.get("pa_num", 0)),
+                )
+                if prior_sorted:
+                    last_pa      = prior_sorted[-1]
+                    last_inn_lu  = _active_lineup_at(
+                        g["lineup"], g["substitutions"], last_pa.get("inning", 1)
+                    )
+                    try:
+                        last_slot = last_inn_lu.index(last_pa["player"]) + 1
+                    except ValueError:
+                        last_slot = 1
+                    nxt_slot = (last_slot % len(lineup_order)) + 1
+                else:
+                    nxt_slot = 1
+                if 1 <= nxt_slot <= len(lineup_order):
+                    leadoff_this_inn = lineup_order[nxt_slot - 1]
+
+            all_scoresheet_players = lineup_order + [p for p in bench_ab if p not in lineup_order]
+
+            for player in all_scoresheet_players:
+                on_bench = player in bench_ab and player not in lineup_order
+                player_inn_pas = sorted(
+                    [pa for pa in pas
+                     if pa["player"] == player and pa.get("inning") == cur_inn],
+                    key=lambda p: p.get("pa_num", 0),
+                )
+                has_scored = any(pa.get("run_scored") for pa in player_inn_pas)
+
+                n_chips  = min(len(player_inn_pas), 3)
+                overflow = len(player_inn_pas) > 3
+                col_ws   = [2.5] + [1.1] * n_chips
+                if overflow:   col_ws += [0.55]
+                col_ws += [0.7]
+                if g.get("live_mode"): col_ws += [0.7]
+                row = st.columns(col_ws)
+
+                name_color  = ("#4CAF50" if has_scored
+                               else "rgba(255,255,255,0.42)" if on_bench else "inherit")
+                ord_lbl     = str(order_map.get(player, "")) if not on_bench else "·"
+                dot         = (" <span style='color:#FF1493;font-size:10px;vertical-align:middle'>●</span>"
+                               if player == leadoff_this_inn else "")
+                subbed_in   = {sub["in"] for sub in g["substitutions"]}
+                italic_style = "font-style:italic;" if player in subbed_in else ""
+                row[0].markdown(
+                    f"<div style='padding:7px 0;font-weight:{'400' if on_bench else '600'};"
+                    f"{italic_style}font-size:14px;color:{name_color}'>"
+                    f"<span style='opacity:0.35;font-size:11px;margin-right:5px'>{ord_lbl}</span>"
+                    f"{player}{dot}</div>",
                     unsafe_allow_html=True,
                 )
-                for idx, inn in enumerate(innings):
-                    pa          = cell_map.get((player, inn))
-                    is_selected = sel == (player, inn)
-                    if pa:
-                        lbl   = CELL_SHORT.get(pa["outcome"], pa["outcome"])
-                        xtra  = "+" + str(pa["rbi"]) if pa.get("rbi") else ""
-                        label = f"{lbl} {xtra}".strip() if xtra else lbl
-                        if pa.get("run_scored"):
-                            label = "● " + label
-                    else:
-                        label = "+"
-                    rcols[idx + 1].button(
-                        label,
-                        key=f"cell_{player}_{inn}",
-                        use_container_width=True,
-                        type="primary" if is_selected else "secondary",
-                        on_click=_pick_cell,
-                        args=(player, inn),
+
+                ci = 1
+                for ei, pa in enumerate(player_inn_pas[:3]):
+                    lbl = CELL_SHORT.get(pa["outcome"], pa["outcome"])
+                    if pa.get("rbi"):        lbl += f"+{pa['rbi']}"
+                    if pa.get("run_scored"): lbl += "●"   # suffix keeps outcome CSS prefix match intact
+                    def _edit_chip(p=player, i=cur_inn, pa=pa):
+                        st.session_state["ss_sel"]     = (p, i)
+                        st.session_state["ss_edit_pa"] = pa
+                    row[ci].button(lbl, key=f"chip_{player}_{cur_inn}_{ei}",
+                                   use_container_width=True, on_click=_edit_chip)
+                    ci += 1
+
+                if overflow:
+                    row[ci].markdown(
+                        f"<div style='padding:8px 0;text-align:center;opacity:0.4;font-size:11px'>"
+                        f"+{len(player_inn_pas)-3}</div>",
+                        unsafe_allow_html=True,
                     )
+                    ci += 1
+
+                def _new_pa(p=player, i=cur_inn):
+                    st.session_state["ss_sel"]     = (p, i)
+                    st.session_state["ss_edit_pa"] = None
+                row[ci].button("+ AB", key=f"add_{player}_{cur_inn}",
+                               use_container_width=True, on_click=_new_pa,
+                               disabled=inning_full)
+                ci += 1
+
+                if g.get("live_mode"):
+                    def _toggle_run(p=player, i=cur_inn):
+                        paps = sorted(
+                            [pa for pa in g["plate_appearances"]
+                             if pa["player"] == p and pa.get("inning") == i],
+                            key=lambda x: x.get("pa_num", 0),
+                        )
+                        if paps:
+                            paps[-1]["run_scored"] = not paps[-1].get("run_scored", False)
+                    row[ci].button(
+                        "Run Scored" if has_scored else "Run Scored",
+                        key=f"run_{player}_{cur_inn}",
+                        type="primary" if has_scored else "secondary",
+                        use_container_width=True, on_click=_toggle_run,
+                    )
+
+            # ── Substitution form ──────────────────────────────────────────────────
+            st.markdown(
+                "<hr style='margin:16px 0 10px;border-color:rgba(255,255,255,0.08)'>",
+                unsafe_allow_html=True,
+            )
+            with st.expander("🔄 Sub / lineup change"):
+                st.caption("Re-entry is allowed — the original player can come back in later.")
+                _cur_active, _cur_bench = _active_bench_at(
+                    g["lineup"], g.get("bench_players", []), g["substitutions"]
+                )
+                out_opts = sorted(_cur_active) if _cur_active else player_names
+                in_opts  = sorted(_cur_bench)  if _cur_bench  else player_names
+                with st.form("add_sub"):
+                    cs1, cs2, cs3 = st.columns(3)
+                    out_p   = cs1.selectbox("Out", out_opts)
+                    in_p    = cs2.selectbox("In",  in_opts)
+                    sub_inn = cs3.number_input("Inning", min_value=1,
+                                               value=cur_inn, step=1)
+                    if st.form_submit_button("Log Sub"):
+                        if out_p == in_p:
+                            st.error("In and Out must be different.")
+                        else:
+                            g["substitutions"].append(
+                                {"out": out_p, "in": in_p, "inning": int(sub_inn)}
+                            )
+                            if in_p not in lineup_order and in_p not in bench_ab:
+                                g["bench_players"].append(in_p)
+                            st.success(f"{in_p} in for {out_p} (inning {sub_inn})")
+                            st.rerun()
+                if g["substitutions"]:
+                    for sub in g["substitutions"]:
+                        st.markdown(f"- Inn {sub['inning']}: **{sub['in']}** in for **{sub['out']}**")
+
+        # ── Tab 3: Review & Save ──────────────────────────────────────────────────
 
         with tab_sv:
             pas = g["plate_appearances"]
@@ -1167,12 +1530,18 @@ elif page == "⚾ Log Game":
                         "BB": s["BB"], "SF": s["SF"], "R": s["R"], "RBI": s["RBI"], "K": s["K"],
                     })
                 summary_df = pd.DataFrame(summary)
-                num_cols = [c for c in ["PA", "AB", "H", "HR", "BB", "SF", "R", "RBI", "K"] if c in summary_df.columns]
-                totals_row = {"Player": "TOTAL", **{c: int(summary_df[c].sum()) for c in num_cols}}
-                summary_df = pd.concat([summary_df, pd.DataFrame([totals_row])], ignore_index=True)
+                num_cols = [c for c in ["PA","AB","H","HR","BB","SF","R","RBI","K"]
+                            if c in summary_df.columns]
+                totals_row = {"Player": "TOTAL",
+                              **{c: int(summary_df[c].sum()) for c in num_cols}}
+                summary_df = pd.concat([summary_df, pd.DataFrame([totals_row])],
+                                       ignore_index=True)
                 st.dataframe(summary_df, hide_index=True, use_container_width=True)
             else:
                 st.info("No at-bats logged yet.")
+
+            if g.get("live_mode") and not g.get("result"):
+                st.warning("Update the score and result at the top before saving.")
 
             st.markdown("---")
             cs, cc = st.columns(2)
@@ -1188,11 +1557,13 @@ elif page == "⚾ Log Game":
                     games_data["games"].append(g)
                 save_games_data(games_data, active_team_id)
                 st.session_state.lg_game = None
+                st.session_state.pop("lg_current_inning", None)
                 st.success(f"Saved game vs {g['opponent']}!")
                 st.balloons()
                 st.rerun()
             if cc.button("🗑️ Discard"):
                 st.session_state.pop("editing_game_id", None)
+                st.session_state.pop("lg_current_inning", None)
                 st.session_state.lg_game = None
                 st.rerun()
 
@@ -1210,10 +1581,12 @@ elif page == "📋 History":
             st.info("No games logged yet.")
     else:
         for g in reversed(games):
-            rw = {"W": "Won", "L": "Lost", "T": "Tied"}.get(g["result"], g["result"])
+            rw = {"W": "Won", "L": "Lost", "T": "Tied"}.get(g.get("result"), "🔴 Live")
             g_tourn = next((t["name"] for t in tournaments if t["id"] == g.get("tournament_id", "")), "")
             tourn_tag = f"  [{g_tourn}]" if g_tourn else ""
-            label = f'{g["date"]}  ·  {rw} {g["team_runs"]}-{g["opp_runs"]}  vs  {g["opponent"]}  [{g.get("type","regular").title()}]{tourn_tag}'
+            score_part = (f"{g.get('team_runs','?')}-{g.get('opp_runs','?')}"
+                          if g.get("result") else "In progress")
+            label = f'{g["date"]}  ·  {rw} {score_part}  vs  {g["opponent"]}  [{g.get("type","regular").title()}]{tourn_tag}'
             with st.expander(label):
                 pas = g.get("plate_appearances", [])
                 if pas:
@@ -1252,6 +1625,7 @@ elif page == "📋 History":
                     import copy
                     st.session_state.lg_game = copy.deepcopy(g)
                     st.session_state["editing_game_id"] = g["game_id"]
+                    st.session_state["lg_current_inning"] = g.get("current_inning", 1)
                     st.session_state["_nav_idx"] = 2
                     st.rerun()
                 if dc.button("🗑️ Delete game", key=f"del_g_{g['game_id']}", use_container_width=True):
