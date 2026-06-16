@@ -2,8 +2,13 @@
   "tournaments": [
     {
       "id": "default",
-      "name": "Alby Tourney",
-      "year": "6/13/26"
+      "name": "Summer 2026",
+      "year": "2026"
+    },
+    {
+      "id": "yesy",
+      "name": "yesy",
+      "year": "2026"
     }
   ],
   "games": [
