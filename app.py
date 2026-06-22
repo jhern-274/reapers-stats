@@ -1090,40 +1090,70 @@ if page == "📊 Dashboard":
             _pcols += ["R", "RBI", "K", "AVG", "SLG", "OPS"]
             _pcols = [c for c in _pcols if c in _pdf.columns]
             _fmt = {c: "{:.3f}" for c in ["AVG", "OBP", "SLG", "OPS"]}
+            _seen_tids = list(dict.fromkeys(_pdf["tournament_id"].tolist()))
+            def _tlabel(t): return _tid_to_name.get(t, "Regular Season") if t else "Regular Season"
 
-            # ── Progression line chart ─────────────────────────────────────────
-            _stat_opts = ["AVG", "OBP", "SLG", "OPS"]
-            _stat_colors = ["#FF69B4", "#4FC3F7", "#81C784", "#FFB74D"]
-            _sel_stats = st.multiselect(
-                "Stats to display",
-                _stat_opts, default=_stat_opts,
-                key="player_stat_sel",
-            )
+            def _agg_stats(df):
+                """Sum counting cols and recompute rate stats for a group of per-game rows."""
+                ab  = int(df["AB"].sum()) if "AB" in df.columns else 0
+                h   = int(df["H"].sum())  if "H"  in df.columns else 0
+                bb  = int(df["BB"].sum()) if "BB" in df.columns else 0
+                sf  = int(df["SF"].sum()) if "SF" in df.columns else 0
+                tb  = int(df["TB"].sum()) if "TB" in df.columns else (
+                      int(df["1B"].sum()) + 2*int(df["2B"].sum()) +
+                      3*int(df["3B"].sum()) + 4*int(df["HR"].sum()))
+                pa  = ab + bb + sf
+                avg = round(h / ab,          3) if ab else 0.0
+                obp = (avg if walks_as_hits
+                       else round((h + bb) / pa, 3) if pa else 0.0)
+                slg = round(tb / ab,          3) if ab else 0.0
+                return {"AVG": avg, "OBP": obp, "SLG": slg, "OPS": round(obp + slg, 3)}
+
+            # ── Controls ──────────────────────────────────────────────────────
+            _c1, _c2 = st.columns([1, 2])
+            _group_by  = _c1.radio("Group by", ["Game", "Tournament"],
+                                   horizontal=True, key="player_group_by")
+            _stat_opts  = ["AVG", "OBP", "SLG", "OPS"]
+            _stat_clrs  = ["#FF69B4", "#4FC3F7", "#81C784", "#FFB74D"]
+            _sel_stats  = _c2.multiselect("Stats to display", _stat_opts,
+                                          default=_stat_opts, key="player_stat_sel")
+
+            # ── Line chart ────────────────────────────────────────────────────
             if _sel_stats:
-                _chart_df = _pdf[["date", "opponent"] + _sel_stats].copy()
-                _chart_df["Game"] = range(1, len(_chart_df) + 1)
-                _chart_df["Label"] = _chart_df["date"] + " vs " + _chart_df["opponent"]
-                _melted = _chart_df.melt(
-                    id_vars=["Game", "Label"],
-                    value_vars=_sel_stats,
+                if _group_by == "Game":
+                    _cd = _pdf[["date", "opponent"] + _sel_stats].copy()
+                    _cd["X"]     = range(1, len(_cd) + 1)
+                    _cd["Label"] = _cd["date"] + " vs " + _cd["opponent"]
+                    _x_title = "Game"
+                else:
+                    _t_rows = []
+                    for _tid in _seen_tids:
+                        _r = _agg_stats(_pdf[_pdf["tournament_id"] == _tid])
+                        _r["X"] = _tlabel(_tid)
+                        _r["Label"] = _tlabel(_tid)
+                        _t_rows.append(_r)
+                    _cd = pd.DataFrame(_t_rows)
+                    _x_title = "Tournament"
+
+                _melted = _cd.melt(
+                    id_vars=["X", "Label"],
+                    value_vars=[s for s in _sel_stats if s in _cd.columns],
                     var_name="Stat", value_name="Value",
                 )
-                _y_max = max(1.0, float(_chart_df[_sel_stats].max().max()) + 0.05)
-                _sel_colors = [_stat_colors[_stat_opts.index(s)] for s in _sel_stats]
+                _y_max = max(1.0, float(_melted["Value"].max()) + 0.05) if not _melted.empty else 1.0
+                _sel_clrs = [_stat_clrs[_stat_opts.index(s)] for s in _sel_stats]
                 _line_chart = (
                     alt.Chart(_melted)
                     .mark_line(point=alt.OverlayMarkDef(size=60))
                     .encode(
-                        x=alt.X("Game:O", axis=alt.Axis(title="Game")),
-                        y=alt.Y("Value:Q",
-                                axis=alt.Axis(title="", format=".3f"),
+                        x=alt.X("X:O", axis=alt.Axis(title=_x_title, labelAngle=-20)),
+                        y=alt.Y("Value:Q", axis=alt.Axis(title="", format=".3f"),
                                 scale=alt.Scale(domain=[0, _y_max])),
                         color=alt.Color("Stat:N", scale=alt.Scale(
-                            domain=_sel_stats, range=_sel_colors,
-                        )),
+                            domain=_sel_stats, range=_sel_clrs)),
                         tooltip=[
-                            alt.Tooltip("Label:N", title="Game"),
-                            alt.Tooltip("Stat:N", title="Stat"),
+                            alt.Tooltip("Label:N", title=_x_title),
+                            alt.Tooltip("Stat:N",  title="Stat"),
                             alt.Tooltip("Value:Q", format=".3f", title="Value"),
                         ],
                     )
@@ -1131,14 +1161,28 @@ if page == "📊 Dashboard":
                 )
                 st.altair_chart(_alt_theme(_line_chart, dark_mode), use_container_width=True)
 
-            # ── Per-tournament game tables ─────────────────────────────────────
-            _seen_tids = list(dict.fromkeys(_pdf["tournament_id"].tolist()))
+            # ── Per-tournament game tables with totals row ─────────────────────
+            def _bold_last(df):
+                out = pd.DataFrame("", index=df.index, columns=df.columns)
+                out.iloc[-1, :] = "font-weight:bold; border-top:2px solid rgba(128,128,128,0.35)"
+                return out
+
             for _tid in _seen_tids:
-                _grp = _pdf[_pdf["tournament_id"] == _tid]
-                _t_label = _tid_to_name.get(_tid, "Regular Season") if _tid else "Regular Season"
-                with st.expander(f"**{_t_label}** — {len(_grp)} game(s)", expanded=True):
+                _grp = _pdf[_pdf["tournament_id"] == _tid].copy()
+                _tl  = _tlabel(_tid)
+                _tot_stats = _agg_stats(_grp)
+                _tot_row = {"date": "TOTAL", "opponent": ""}
+                for _c in ["AB", "H", "1B", "2B", "3B", "HR", "BB", "SF", "R", "RBI", "K"]:
+                    if _c in _grp.columns:
+                        _tot_row[_c] = int(_grp[_c].sum())
+                _tot_row.update(_tot_stats)
+                _disp = pd.concat(
+                    [_grp[_pcols], pd.DataFrame([_tot_row])[_pcols]],
+                    ignore_index=True,
+                )
+                with st.expander(f"**{_tl}** — {len(_grp)} game(s)", expanded=True):
                     st.dataframe(
-                        _grp[_pcols].style.format(_fmt),
+                        _disp.style.format(_fmt).apply(_bold_last, axis=None),
                         hide_index=True, use_container_width=True,
                     )
 
