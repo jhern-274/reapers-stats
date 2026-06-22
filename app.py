@@ -40,12 +40,75 @@ OUTCOME_DISPLAY = {
     "TP":     "Triple Play (3 outs)",
 }
 HIT_CODES = {"1B", "2B", "3B", "HR_OTF", "HR_ITP"}
-OUT_WEIGHTS = {"OUT": 1, "K": 1, "DP": 2, "TP": 3}  # outs recorded per outcome
+OUT_WEIGHTS = {"OUT": 1, "K": 1, "SF": 1, "DP": 2, "TP": 3}  # outs recorded per outcome
 OUTCOME_BASES = {
     "1B": 1, "2B": 2, "3B": 3, "HR_OTF": 4, "HR_ITP": 4,
     "BB": 1, "E": 1, "FC": 1,
     "SF": 0, "OUT": 0, "K": 0, "DP": 0, "TP": 0,
 }
+
+def _alt_theme(chart, dark: bool):
+    """Apply consistent light/dark styling to any Altair chart."""
+    lc = "#cccccc" if dark else "#444444"
+    gc = "rgba(255,255,255,0.08)" if dark else "rgba(0,0,0,0.07)"
+    dc = "rgba(255,255,255,0.15)" if dark else "rgba(0,0,0,0.15)"
+    return (
+        chart
+        .configure_view(strokeWidth=0, fill="transparent")
+        .configure_axis(gridColor=gc, domainColor=dc, labelColor=lc, titleColor=lc)
+        .configure_legend(labelColor=lc, titleColor=lc)
+    )
+
+
+def _credit_rbi(pas: list, runner_pa_num: int,
+                new_driver: str, old_driven_by_pa_num) -> "int | None":
+    """
+    Adjust RBI on driver PAs when a runner's driven_in_by is set, changed, or cleared.
+    Removes 1 from old driver's PA (if any), adds 1 to new driver's earliest PA
+    that has pa_num > runner_pa_num (they batted after runner reached base).
+    Returns the new driven_by_pa_num to store on the runner PA, or None.
+    """
+    if old_driven_by_pa_num is not None:
+        old_pa = next((p for p in pas if p.get("pa_num") == old_driven_by_pa_num), None)
+        if old_pa:
+            old_pa["rbi"] = max(0, old_pa.get("rbi", 0) - 1)
+    if new_driver and new_driver != "Error — no RBI":
+        eligible = sorted(
+            [p for p in pas if p.get("player") == new_driver
+             and p.get("pa_num", 0) > runner_pa_num],
+            key=lambda p: p["pa_num"],
+        )
+        if eligible:
+            eligible[0]["rbi"] = eligible[0].get("rbi", 0) + 1
+            return eligible[0]["pa_num"]
+    return None
+
+
+def _chip_label(oc: str, rbi: int) -> str:
+    if oc == "1B":
+        if rbi >= 2: return f"{rbi} RBI Single"
+        if rbi == 1: return "RBI Single"
+        return "Single"
+    if oc == "2B":
+        if rbi >= 2: return f"{rbi} RBI Double"
+        if rbi == 1: return "RBI Double"
+        return "Double"
+    if oc == "3B":
+        if rbi >= 2: return f"{rbi} RBI Triple"
+        if rbi == 1: return "RBI Triple"
+        return "Triple"
+    if oc == "HR_OTF":
+        if rbi == 4: return "Grand Slam"
+        if rbi == 3: return "3 Run HR"
+        if rbi == 2: return "2 Run HR"
+        return "Solo HR"
+    if oc == "HR_ITP":
+        if rbi == 4: return "ITP Slam"
+        if rbi == 3: return "ITP 3 Run"
+        if rbi == 2: return "ITP 2 Run"
+        return "ITP Solo"
+    return {"BB": "Walk", "E": "Error", "SF": "Sac Fly",
+            "OUT": "Out", "K": "K", "DP": "DP", "TP": "TP", "FC": "FC"}.get(oc, oc)
 
 # ── Page config ───────────────────────────────────────────────────────────────
 
@@ -195,24 +258,21 @@ div[data-testid='stHorizontalBlock'] div[data-testid='stButton'] button
 
 /* ── Scoresheet cell colors by outcome ─────────────────────────────────────── */
 /* Hits — green */
-button[aria-label^="1B"],button[aria-label^="2B"],button[aria-label^="3B"],
-button[aria-label^="HR"],button[aria-label^="ITP"]
+button[aria-label*="Single"],button[aria-label*="Double"],button[aria-label*="Triple"],
+button[aria-label*=" HR"],button[aria-label^="Grand"],button[aria-label^="ITP"],
+button[aria-label^="Solo HR"]
 { background-color:rgba(50,205,80,0.10)!important;
   border-color:rgba(50,205,80,0.35)!important; color:#8ee89a!important }
 /* Outs — red */
-button[aria-label^="OUT"],button[aria-label^="K"],
-button[aria-label^="DP"],button[aria-label^="TP"]
+button[aria-label^="Out"],button[aria-label^="K"],
+button[aria-label^="DP"],button[aria-label^="TP"],button[aria-label^="Sac"]
 { background-color:rgba(220,60,60,0.20)!important;
   border-color:rgba(220,60,60,0.60)!important; color:#f09898!important }
 /* Walks / reach — blue */
-button[aria-label^="BB"],button[aria-label^="E"],
-button[aria-label^="FC"],button[aria-label^="SF"]
+button[aria-label^="Walk"],button[aria-label^="Error"],
+button[aria-label^="FC"]
 { background-color:rgba(60,140,220,0.10)!important;
   border-color:rgba(60,140,220,0.30)!important; color:#88bbf0!important }
-/* Run scored — green chip */
-button[aria-label$=' RS']
-{ background-color:rgba(50,205,80,0.22)!important;
-  border-color:rgba(50,205,80,0.55)!important; color:#b0f5b0!important }
 
 /* ── At-bat dialog outcome grid ─────────────────────────────────────────────── */
 [role="dialog"] div[data-testid="stButton"] button {
@@ -233,16 +293,75 @@ button[aria-label$=' RS']
 [role="dialog"] button[aria-label="OUT"],
 [role="dialog"] button[aria-label="K"],
 [role="dialog"] button[aria-label="DP"],
-[role="dialog"] button[aria-label="TP"]
+[role="dialog"] button[aria-label="TP"],
+[role="dialog"] button[aria-label="SF"]
 { border-color:rgba(220,60,60,0.55)!important; color:#f09898!important }
 [role="dialog"] button[aria-label="BB"],
 [role="dialog"] button[aria-label="E"],
-[role="dialog"] button[aria-label="FC"],
-[role="dialog"] button[aria-label="SF"]
+[role="dialog"] button[aria-label="FC"]
 { border-color:rgba(60,140,220,0.55)!important; color:#88bbf0!important }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
+
+LIGHT_CSS = """
+<style>
+[data-testid="stApp"]
+{ background:#f5f5f7!important; color:#1a1a1a!important }
+[data-testid="stSidebar"]
+{ background:#ffffff!important }
+[data-testid="stSidebar"] *
+{ color:#1a1a1a!important }
+.hero {
+  background:linear-gradient(135deg,#fff0f5 0%,#ffd6eb 55%,#ffc0de 100%)!important;
+  color:#1a1a1a!important;
+  box-shadow:0 4px 24px rgba(255,20,147,0.10)!important;
+}
+.hero .sub { color:rgba(0,0,0,0.55)!important }
+.badge { color:#b00050!important; background:rgba(255,20,147,0.10)!important }
+.badge.green { color:#1a7a3a!important; background:rgba(80,200,120,0.12)!important }
+.badge.red   { color:#a02020!important; background:rgba(220,80,80,0.12)!important }
+.kpi-card { background:#ffffff!important; color:#1a1a1a!important; border-color:rgba(255,20,147,0.18)!important }
+.kpi-card .label { color:rgba(0,0,0,0.50)!important }
+.kpi-card .hint  { color:rgba(0,0,0,0.38)!important }
+.leader-card { background:#ffffff!important; color:#1a1a1a!important }
+.leader-row .val { color:#1a1a1a!important }
+.cmp-val { color:rgba(0,0,0,0.45)!important }
+.stats-table-wrap { background:#ffffff!important; border-color:rgba(0,0,0,0.08)!important }
+.stats-table { color:#1a1a1a!important }
+.stats-table th { color:rgba(0,0,0,0.50)!important; border-color:rgba(0,0,0,0.08)!important }
+.stats-table td { border-color:rgba(0,0,0,0.05)!important }
+/* ── Light mode: chip button color overrides ─────────────────────────────── */
+button[aria-label*="Single"],button[aria-label*="Double"],button[aria-label*="Triple"],
+button[aria-label*=" HR"],button[aria-label^="Grand"],button[aria-label^="ITP"],
+button[aria-label^="Solo HR"]
+{ background-color:rgba(50,205,80,0.18)!important;
+  border-color:rgba(50,205,80,0.65)!important; color:#1a5e28!important }
+button[aria-label^="Out"],button[aria-label^="K"],
+button[aria-label^="DP"],button[aria-label^="TP"],button[aria-label^="Sac"]
+{ background-color:rgba(220,60,60,0.18)!important;
+  border-color:rgba(220,60,60,0.75)!important; color:#7a1010!important }
+button[aria-label^="Walk"],button[aria-label^="Error"],
+button[aria-label^="FC"]
+{ background-color:rgba(60,140,220,0.18)!important;
+  border-color:rgba(60,140,220,0.65)!important; color:#103080!important }
+/* ── Light mode: scoresheet & dialog text ───────────────────────────────── */
+[data-testid="stApp"] [data-testid="stMarkdownContainer"] { color:#1a1a1a!important }
+[role="dialog"] { background:#ffffff!important }
+[role="dialog"] label, [role="dialog"] p, [role="dialog"] div { color:#1a1a1a!important }
+[data-testid="stApp"] label { color:#1a1a1a!important }
+[data-testid="stApp"] p { color:#1a1a1a!important }
+[data-testid="stApp"] [data-testid="stBaseButton-secondary"] { color:#1a1a1a!important }
+/* ── Light mode: tabs and expanders ─────────────────────────────────────── */
+[data-testid="stApp"] [data-testid="stTabs"] button { color:#444444!important }
+[data-testid="stApp"] details summary { color:#1a1a1a!important }
+[data-testid="stApp"] details { background:#ffffff!important; border-color:rgba(0,0,0,0.12)!important }
+/* ── Light mode: selectbox / number_input ───────────────────────────────── */
+[data-testid="stApp"] [data-baseweb="select"] { background:#ffffff!important }
+[data-testid="stApp"] [data-baseweb="select"] * { color:#1a1a1a!important }
+[data-testid="stApp"] input[type="number"] { color:#1a1a1a!important; background:#ffffff!important }
+</style>
+"""
 
 # ── I/O ───────────────────────────────────────────────────────────────────────
 
@@ -476,7 +595,8 @@ def build_per_game_df(games: list[dict], walks_as_hits: bool) -> pd.DataFrame:
             s = pas_to_stat_row(ppas, walks_as_hits)
             s.update({"player": player, "game_id": g["game_id"],
                       "date": g["date"], "opponent": g["opponent"],
-                      "type": g.get("type", "regular")})
+                      "type": g.get("type", "regular"),
+                      "tournament_id": g.get("tournament_id", "")})
             rows.append(s)
     if not rows:
         return pd.DataFrame()
@@ -648,6 +768,11 @@ with st.sidebar:
         help="ON = walk recorded as single (league rule). OFF = standard OBP.",
     )
     st.caption("League mode (BB = hit)" if walks_as_hits else "Standard mode (BB → OBP only)")
+    dark_mode = st.toggle("🌙 Dark mode", value=st.session_state.get("dark_mode", True),
+                          key="dark_mode")
+
+if not st.session_state.get("dark_mode", True):
+    st.markdown(LIGHT_CSS, unsafe_allow_html=True)
 
 # ── Build stats ───────────────────────────────────────────────────────────────
 
@@ -736,8 +861,8 @@ if page == "📊 Dashboard":
             unsafe_allow_html=True,
         )
 
-    tab_ovr, tab_lead, tab_cmp, tab_tbl, tab_log = st.tabs(
-        ["📈 Overview", "🏆 Leaders", "⚔️ Compare", "📊 Stats Table", "🗓️ Game Log"]
+    tab_ovr, tab_lead, tab_cmp, tab_tbl, tab_log, tab_player = st.tabs(
+        ["📈 Overview", "🏆 Leaders", "⚔️ Compare", "📊 Stats Table", "🗓️ Game Log", "👤 Player"]
     )
 
     with tab_ovr:
@@ -771,7 +896,7 @@ if page == "📊 Dashboard":
                         tooltip=["Type:N", "Count:Q", alt.Tooltip("Pct:Q", format=".1f", title="% of hits")],
                     ).properties(height=260)
                 )
-                st.altair_chart(chart, use_container_width=True)
+                st.altair_chart(_alt_theme(chart, dark_mode), use_container_width=True)
 
             with right:
                 st.markdown("##### Top 8 by OPS")
@@ -779,14 +904,17 @@ if page == "📊 Dashboard":
                 chart_df = totals[totals["AB"] >= min_ab].sort_values("OPS", ascending=False).head(8)
                 if not chart_df.empty:
                     st.altair_chart(
-                        alt.Chart(chart_df).mark_bar(color="#FF1493")
-                        .encode(
-                            y=alt.Y("player:N", sort="-x", title=None),
-                            x=alt.X("OPS:Q", axis=alt.Axis(format=".3f")),
-                            tooltip=["player", "AB", "H", "HR",
-                                     alt.Tooltip("AVG:Q", format=".3f"),
-                                     alt.Tooltip("OPS:Q", format=".3f")],
-                        ).properties(height=260),
+                        _alt_theme(
+                            alt.Chart(chart_df).mark_bar(color="#FF1493")
+                            .encode(
+                                y=alt.Y("player:N", sort="-x", title=None),
+                                x=alt.X("OPS:Q", axis=alt.Axis(format=".3f")),
+                                tooltip=["player", "AB", "H", "HR",
+                                         alt.Tooltip("AVG:Q", format=".3f"),
+                                         alt.Tooltip("OPS:Q", format=".3f")],
+                            ).properties(height=260),
+                            dark_mode,
+                        ),
                         use_container_width=True,
                     )
                     st.caption(f"Qualified: ≥{min_ab} AB")
@@ -913,12 +1041,14 @@ if page == "📊 Dashboard":
         if totals.empty:
             st.info("No stats yet.")
         else:
-            sort_by = st.selectbox("Sort by", ["OPS", "AVG", "HR", "RBI", "R", "H", "AB"])
             cols = ["player", "G", "AB", "H", "1B", "2B", "3B", "HR", "HR_OTF", "HR_ITP"]
             if not walks_as_hits:
                 cols.append("BB")
             cols += ["SF", "R", "RBI", "K", "AVG", "OBP", "SLG", "OPS"]
             cols = [c for c in cols if c in totals.columns]
+            sort_opts = [c for c in cols if c != "player"]
+            _def_sort = sort_opts.index("OPS") if "OPS" in sort_opts else 0
+            sort_by = st.selectbox("Sort by", sort_opts, index=_def_sort)
             render_stats_table(
                 totals[cols].sort_values(sort_by, ascending=False).reset_index(drop=True)
             )
@@ -946,6 +1076,71 @@ if page == "📊 Dashboard":
                 pdf[cols].style.format({c: "{:.3f}" for c in ["AVG", "SLG", "OPS"]}),
                 hide_index=True, use_container_width=True,
             )
+
+    with tab_player:
+        if pg.empty:
+            st.info("No game data yet.")
+        else:
+            _tid_to_name = {t["id"]: t["name"] for t in tournaments}
+            _p_sel = st.selectbox("Player", sorted(pg["player"].unique()), key="player_tab_sel")
+            _pdf = pg[pg["player"] == _p_sel].sort_values("game_id").copy()
+            _pcols = ["date", "opponent", "AB", "H", "2B", "3B", "HR"]
+            if not walks_as_hits:
+                _pcols.append("BB")
+            _pcols += ["R", "RBI", "K", "AVG", "SLG", "OPS"]
+            _pcols = [c for c in _pcols if c in _pdf.columns]
+            _fmt = {c: "{:.3f}" for c in ["AVG", "OBP", "SLG", "OPS"]}
+
+            # ── Progression line chart ─────────────────────────────────────────
+            _stat_opts = ["AVG", "OBP", "SLG", "OPS"]
+            _stat_colors = ["#FF69B4", "#4FC3F7", "#81C784", "#FFB74D"]
+            _sel_stats = st.multiselect(
+                "Stats to display",
+                _stat_opts, default=_stat_opts,
+                key="player_stat_sel",
+            )
+            if _sel_stats:
+                _chart_df = _pdf[["date", "opponent"] + _sel_stats].copy()
+                _chart_df["Game"] = range(1, len(_chart_df) + 1)
+                _chart_df["Label"] = _chart_df["date"] + " vs " + _chart_df["opponent"]
+                _melted = _chart_df.melt(
+                    id_vars=["Game", "Label"],
+                    value_vars=_sel_stats,
+                    var_name="Stat", value_name="Value",
+                )
+                _y_max = max(1.0, float(_chart_df[_sel_stats].max().max()) + 0.05)
+                _sel_colors = [_stat_colors[_stat_opts.index(s)] for s in _sel_stats]
+                _line_chart = (
+                    alt.Chart(_melted)
+                    .mark_line(point=alt.OverlayMarkDef(size=60))
+                    .encode(
+                        x=alt.X("Game:O", axis=alt.Axis(title="Game")),
+                        y=alt.Y("Value:Q",
+                                axis=alt.Axis(title="", format=".3f"),
+                                scale=alt.Scale(domain=[0, _y_max])),
+                        color=alt.Color("Stat:N", scale=alt.Scale(
+                            domain=_sel_stats, range=_sel_colors,
+                        )),
+                        tooltip=[
+                            alt.Tooltip("Label:N", title="Game"),
+                            alt.Tooltip("Stat:N", title="Stat"),
+                            alt.Tooltip("Value:Q", format=".3f", title="Value"),
+                        ],
+                    )
+                    .properties(height=280)
+                )
+                st.altair_chart(_alt_theme(_line_chart, dark_mode), use_container_width=True)
+
+            # ── Per-tournament game tables ─────────────────────────────────────
+            _seen_tids = list(dict.fromkeys(_pdf["tournament_id"].tolist()))
+            for _tid in _seen_tids:
+                _grp = _pdf[_pdf["tournament_id"] == _tid]
+                _t_label = _tid_to_name.get(_tid, "Regular Season") if _tid else "Regular Season"
+                with st.expander(f"**{_t_label}** — {len(_grp)} game(s)", expanded=True):
+                    st.dataframe(
+                        _grp[_pcols].style.format(_fmt),
+                        hide_index=True, use_container_width=True,
+                    )
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: ROSTER
@@ -1229,7 +1424,7 @@ elif page == "⚾ Log Game":
             }
             _OUTCOME_ROWS = [
                 ["1B",    "2B",  "3B",  "HR_OTF"      ],
-                ["HR_ITP","BB",  "E",   "FC"           ],
+                ["BB",  "FC",  "E",   "HR_ITP"       ],
                 ["OUT",   "K",   "DP",  "SF",  "TP"   ],
             ]
             _BTN_LABEL         = {k: CELL_SHORT[k] for k in CELL_SHORT}
@@ -1295,6 +1490,9 @@ elif page == "⚾ Log Game":
                             st.session_state[oak]  = []
                             st.session_state.pop(f"dlg_fc_player_{ck}", None)
                             st.session_state.pop(f"dlg_fc_base_{ck}", None)
+                            if code == "SF":
+                                st.session_state[f"dlg_rbi_{ck}"] = max(
+                                    st.session_state.get(f"dlg_rbi_{ck}", 0), 1)
                         _disabled = (oc == "SF" and _dlg_outs >= 2)
                         cols[col_idx].button(
                             _BTN_LABEL[oc],
@@ -1307,7 +1505,7 @@ elif page == "⚾ Log Game":
                 outcome    = st.session_state.get(out_key)
                 is_hr      = outcome in {"HR_OTF", "HR_ITP"}
                 cur_bases  = st.session_state.get(bases_key, 0)
-                is_out_oc  = outcome in OUT_WEIGHTS or outcome == "SF"
+                is_out_oc  = outcome in OUT_WEIGHTS
                 cur_out_at = st.session_state.get(outat_key, [])
                 is_fc_dp   = outcome in {"FC", "DP"}
 
@@ -1374,22 +1572,41 @@ elif page == "⚾ Log Game":
                                 col.button(blbl, key=f"fcbase_{cell_key}_{bval}",
                                            type="primary" if cur_fc_base == bval else "secondary",
                                            use_container_width=True, on_click=_set_fc_base)
-                    else:  # DP
+                    else:  # DP — pick who got out where (2 outs)
                         st.markdown(
                             "<div style='font-size:12px;opacity:0.6;margin-top:8px'>"
-                            "Runner out at:</div>",
+                            "Players thrown out:</div>",
                             unsafe_allow_html=True)
-                        _oa_cols = st.columns(4)
-                        for col, (bval, blbl) in zip(_oa_cols,
-                                                     [(1,"1st"),(2,"2nd"),(3,"3rd"),(4,"Home")]):
-                            def _tog_out(v=bval, oak=outat_key):
-                                cur = list(st.session_state.get(oak, []))
-                                if v in cur: cur.remove(v)
-                                else: cur.append(v)
-                                st.session_state[oak] = cur
-                            col.button(blbl, key=f"outat_{cell_key}_{bval}",
-                                       type="primary" if bval in cur_out_at else "secondary",
-                                       use_container_width=True, on_click=_tog_out)
+                        _dp_base_lbl = {1:"1st",2:"2nd",3:"3rd",4:"Home"}
+                        _ex_dp_outs  = existing.get("dp_outs", []) if existing else []
+                        for _dpi in range(2):
+                            _dp_pk = f"dlg_dp_p{_dpi}_{cell_key}"
+                            _dp_bk = f"dlg_dp_b{_dpi}_{cell_key}"
+                            _ex_dpo = _ex_dp_outs[_dpi] if len(_ex_dp_outs) > _dpi else {}
+                            if _dp_pk not in st.session_state:
+                                st.session_state[_dp_pk] = _ex_dpo.get("player", "")
+                            if _dp_bk not in st.session_state:
+                                st.session_state[_dp_bk] = _ex_dpo.get("base", 0)
+                            _dp_all = ["— pick player —"] + lineup_order
+                            _cur_dp_p = st.session_state.get(_dp_pk, "")
+                            _dp_p_idx = _dp_all.index(_cur_dp_p) if _cur_dp_p in _dp_all else 0
+                            def _set_dp_p(pk=_dp_pk, ck=cell_key, di=_dpi):
+                                v = st.session_state.get(f"_dpps_{di}_{ck}", "")
+                                st.session_state[pk] = v if v != "— pick player —" else ""
+                            _dpc = st.columns([2,1,1,1,1])
+                            _dpc[0].selectbox("", _dp_all, index=_dp_p_idx,
+                                              key=f"_dpps_{_dpi}_{cell_key}",
+                                              label_visibility="collapsed",
+                                              on_change=_set_dp_p)
+                            _cur_dp_b = st.session_state.get(_dp_bk, 0)
+                            for _dci, (bval, blbl) in enumerate(
+                                    [(1,"1st"),(2,"2nd"),(3,"3rd"),(4,"H")]):
+                                def _set_dp_b(v=bval, bk=_dp_bk):
+                                    st.session_state[bk] = v
+                                _dpc[_dci+1].button(
+                                    blbl, key=f"dpbase_{cell_key}_{_dpi}_{bval}",
+                                    type="primary" if _cur_dp_b == bval else "secondary",
+                                    use_container_width=True, on_click=_set_dp_b)
 
                 # ── Batter thrown out extending the hit ───────────────────────
                 if outcome in {"1B", "2B", "3B"}:
@@ -1454,12 +1671,45 @@ elif page == "⚾ Log Game":
                             st.session_state[bk] = OUTCOME_BASES.get(
                                 st.session_state.get(ok), 0
                             )
-                    run_scored = cs2.checkbox(
-                        "Run scored",
-                        value=existing.get("run_scored", False) if existing else False,
-                        key=_run_key,
-                        on_change=_sync_run,
-                    )
+                    _auto_scored = cur_bases >= 4
+                    if _auto_scored:
+                        run_scored = True
+                        cs2.markdown(
+                            "<div style='font-size:12px;color:#4CAF50;padding-top:28px'>"
+                            "🏠 Run scored</div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        run_scored = cs2.checkbox(
+                            "Run scored",
+                            value=existing.get("run_scored", False) if existing else False,
+                            key=_run_key,
+                            on_change=_sync_run,
+                        )
+                    if run_scored:
+                        _drv_key = f"dlg_drv_{cell_key}"
+                        if _drv_key not in st.session_state:
+                            st.session_state[_drv_key] = (existing.get("driven_in_by", "")
+                                                           if existing else "")
+                        # Only show players who batted AFTER runner reached base
+                        # (driver pa_num must be > runner pa_num — the 4-hitter
+                        #  can't drive in the 7-hitter unless 7 already had a PA)
+                        _runner_pa_num = existing["pa_num"] if existing else 0
+                        _batted_after = {
+                            p["player"] for p in g.get("plate_appearances", [])
+                            if p.get("pa_num", 0) > _runner_pa_num
+                        } if _runner_pa_num else set(lineup_order)
+                        _drv_opts = (["— select —"]
+                                     + [p for p in lineup_order
+                                        if p != sel_player and p in _batted_after]
+                                     + ["Error — no RBI"])
+                        _cur_drv = st.session_state.get(_drv_key, "")
+                        _drv_idx = _drv_opts.index(_cur_drv) if _cur_drv in _drv_opts else 0
+                        def _set_drv(dk=_drv_key, ck=cell_key):
+                            v = st.session_state.get(f"_drv_sel_{ck}", "")
+                            st.session_state[dk] = v if v != "— select —" else ""
+                        st.selectbox("🏠 Who drove him in?", _drv_opts, index=_drv_idx,
+                                     key=f"_drv_sel_{cell_key}", on_change=_set_drv)
 
                 cb1, cb2 = st.columns(2)
                 if cb1.button("✓  Save", type="primary", use_container_width=True,
@@ -1475,13 +1725,32 @@ elif page == "⚾ Log Game":
                             ]
                         bases_reached_val  = st.session_state.get(bases_key, OUTCOME_BASES.get(outcome, 0))
                         run_scored_final   = bool(run_scored) or (bases_reached_val >= 4)
-                        out_at_val         = st.session_state.get(outat_key, [])
+                        # DP: build dp_outs list and derive out_at from it
+                        if outcome == "DP":
+                            dp_outs_val = []
+                            for _dpi in range(2):
+                                _p = st.session_state.get(f"dlg_dp_p{_dpi}_{cell_key}", "")
+                                _b = st.session_state.get(f"dlg_dp_b{_dpi}_{cell_key}", 0)
+                                if _p and _b:
+                                    dp_outs_val.append({"player": _p, "base": _b})
+                            out_at_val = [o["base"] for o in dp_outs_val]
+                        else:
+                            dp_outs_val = []
+                            out_at_val  = st.session_state.get(outat_key, [])
                         fc_out_player_val  = st.session_state.get(f"dlg_fc_player_{cell_key}", "")
                         fc_out_at_val      = st.session_state.get(f"dlg_fc_base_{cell_key}", 0)
                         _bout_val = 0
                         if outcome in {"1B", "2B", "3B"} and st.session_state.get(f"dlg_bout_{cell_key}"):
                             _bout_val = st.session_state.get(f"dlg_bout_base_{cell_key}", 0)
-                        new_num = max((p.get("pa_num", 0) for p in g["plate_appearances"]), default=0) + 1
+                        _drv_val = st.session_state.get(f"dlg_drv_{cell_key}", "") if run_scored_final else ""
+                        # Preserve original pa_num on edits so sequence order stays stable
+                        new_num = (existing["pa_num"] if existing
+                                   else max((p.get("pa_num", 0) for p in g["plate_appearances"]), default=0) + 1)
+                        # Auto-credit driver's RBI and get the driving PA's pa_num
+                        _old_driven_by_pnum = existing.get("driven_by_pa_num") if existing else None
+                        _driven_by_pa_num = _credit_rbi(
+                            g["plate_appearances"], new_num, _drv_val, _old_driven_by_pnum
+                        ) if existing else None
                         g["plate_appearances"].append({
                             "pa_num": new_num, "inning": sel_inning,
                             "player": sel_player, "outcome": outcome,
@@ -1491,6 +1760,9 @@ elif page == "⚾ Log Game":
                             "fc_out_player": fc_out_player_val if outcome in {"FC","1B","2B","3B"} else "",
                             "fc_out_at":     fc_out_at_val     if outcome in {"FC","1B","2B","3B"} else 0,
                             "batter_out_at": _bout_val,
+                            "driven_in_by":  _drv_val,
+                            "driven_by_pa_num": _driven_by_pa_num,
+                            "dp_outs":       dp_outs_val,
                         })
                         st.session_state.pop(out_key, None)
                         st.session_state.pop(bases_key, None)
@@ -1499,15 +1771,32 @@ elif page == "⚾ Log Game":
                         st.session_state.pop(f"dlg_fc_base_{cell_key}", None)
                         st.session_state.pop(f"dlg_bout_{cell_key}", None)
                         st.session_state.pop(f"dlg_bout_base_{cell_key}", None)
+                        st.session_state.pop(f"dlg_drv_{cell_key}", None)
+                        for _dpi in range(2):
+                            st.session_state.pop(f"dlg_dp_p{_dpi}_{cell_key}", None)
+                            st.session_state.pop(f"dlg_dp_b{_dpi}_{cell_key}", None)
+                        _eid = st.session_state.get("editing_game_id")
+                        if _eid is not None:
+                            games_data["games"] = [g if x["game_id"] == _eid else x for x in games_data["games"]]
+                        save_games_data(games_data, active_team_id)
                         st.session_state["ss_sel"] = st.session_state["ss_edit_pa"] = None
                         st.rerun()
 
                 if existing and cb2.button("✕  Clear", use_container_width=True,
                                            key=f"dlg_clear_{cell_key}"):
+                    # Remove any RBI credit from the driver before deleting
+                    _old_dbpn = existing.get("driven_by_pa_num")
+                    if _old_dbpn is not None and existing.get("run_scored"):
+                        _credit_rbi(g["plate_appearances"], existing["pa_num"],
+                                    "", _old_dbpn)
                     g["plate_appearances"] = [
                         p for p in g["plate_appearances"]
                         if p.get("pa_num") != existing["pa_num"]
                     ]
+                    _eid = st.session_state.get("editing_game_id")
+                    if _eid is not None:
+                        games_data["games"] = [g if x["game_id"] == _eid else x for x in games_data["games"]]
+                    save_games_data(games_data, active_team_id)
                     st.session_state.pop(out_key, None)
                     st.session_state["ss_sel"] = st.session_state["ss_edit_pa"] = None
                     st.rerun()
@@ -1661,7 +1950,7 @@ elif page == "⚾ Log Game":
                 _rpl = _rpa.get("player")
                 _rbr = _rpa.get("bases_reached", 0)
                 _roc = _rpa.get("outcome", "")
-                if _roc not in OUT_WEIGHTS and _roc != "SF":
+                if _roc not in OUT_WEIGHTS:
                     if (1 <= _rbr <= 3
                             and not _rpa.get("run_scored")
                             and not _rpa.get("batter_out_at")):
@@ -1722,7 +2011,7 @@ elif page == "⚾ Log Game":
                         continue
                     _noc = _npa.get("outcome", "")
                     _nbr = _npa.get("bases_reached", 0)
-                    if _noc in OUT_WEIGHTS or _noc == "SF":
+                    if _noc in OUT_WEIGHTS:
                         continue
                     if _nbr >= _rbase:
                         _force_warns.append(
@@ -1848,20 +2137,36 @@ elif page == "⚾ Log Game":
             # Find who leads off this inning (use the lineup from the inning the last AB occurred in)
             leadoff_this_inn = None
             if lineup_order:
-                prior_sorted = sorted(
-                    [pa for pa in pas if pa.get("inning", 0) < cur_inn],
-                    key=lambda p: (p.get("inning", 0), p.get("pa_num", 0)),
-                )
-                if prior_sorted:
-                    last_pa      = prior_sorted[-1]
-                    last_inn_lu  = _active_lineup_at(
-                        g["lineup"], g["substitutions"], last_pa.get("inning", 1)
-                    )
-                    try:
-                        last_slot = last_inn_lu.index(last_pa["player"]) + 1
-                    except ValueError:
-                        last_slot = 1
-                    nxt_slot = (last_slot % len(lineup_order)) + 1
+                _prev_inn_nums = [pa.get("inning", 0) for pa in pas
+                                  if pa.get("inning", 0) < cur_inn]
+                if _prev_inn_nums:
+                    _last_prev_inn = max(_prev_inn_nums)
+                    _last_inn_lu   = _active_lineup_at(
+                        g["lineup"], g["substitutions"], _last_prev_inn)
+                    _n = len(_last_inn_lu)
+                    # Use lineup slot (not pa_num) to determine who batted last —
+                    # pa_num is unreliable because edits assign a new high pa_num.
+                    _slots_batted = set()
+                    for _pa in pas:
+                        if _pa.get("inning") == _last_prev_inn:
+                            try:
+                                _slots_batted.add(
+                                    _last_inn_lu.index(_pa["player"]) + 1)
+                            except ValueError:
+                                pass
+                    if _slots_batted:
+                        # Find the end of the consecutive batting sequence,
+                        # handling wrap-around (e.g. slots 8,9,1,2 → last is 2).
+                        _last_slot = None
+                        for _s in range(1, _n + 1):
+                            if _s in _slots_batted and (_s % _n) + 1 not in _slots_batted:
+                                _last_slot = _s
+                                break
+                        if _last_slot is None:
+                            _last_slot = max(_slots_batted)
+                        nxt_slot = (_last_slot % _n) + 1
+                    else:
+                        nxt_slot = 1
                 else:
                     nxt_slot = 1
                 if 1 <= nxt_slot <= len(lineup_order):
@@ -1938,14 +2243,11 @@ elif page == "⚾ Log Game":
                 ci = 1
                 _n_chips_shown = min(len(player_inn_pas), 3)
                 for ei, pa in enumerate(player_inn_pas[:3]):
-                    lbl     = CELL_SHORT.get(pa["outcome"], pa["outcome"])
-                    if pa.get("run_scored"): lbl += " RS"
+                    lbl     = _chip_label(pa["outcome"], pa.get("rbi", 0))
                     _br      = pa.get("bases_reached",
                                       OUTCOME_BASES.get(pa.get("outcome", "OUT"), 0))
                     _batter_oa = pa.get("batter_out_at", 0)
-                    _is_out  = (pa.get("outcome") in OUT_WEIGHTS
-                                or pa.get("outcome") == "SF"
-                                or bool(_batter_oa))
+                    _is_out  = pa.get("outcome") in OUT_WEIGHTS or bool(_batter_oa)
                     _out_n   = _out_nums.get(pa.get("pa_num"))
                     if _is_out and _out_n:
                         _oc_w = OUT_WEIGHTS.get(pa.get("outcome"), 1)
@@ -1974,9 +2276,16 @@ elif page == "⚾ Log Game":
                         st.markdown(_mini_diamond_svg(_disp_br, out_at=_chip_out_at),
                                     unsafe_allow_html=True)
                         if pa.get("run_scored"):
+                            _dib = pa.get("driven_in_by", "")
+                            if _dib == "Error — no RBI":
+                                _rs_lbl = "RS · Error"
+                            elif _dib:
+                                _rs_lbl = f"Driven in by {_dib.split()[0]}"
+                            else:
+                                _rs_lbl = "RS"
                             st.markdown(
-                                "<div style='font-size:9px;text-align:center;"
-                                "color:#50cd78;margin-top:-2px'>RS</div>",
+                                f"<div style='font-size:9px;text-align:center;"
+                                f"color:#50cd78;margin-top:-2px'>{_rs_lbl}</div>",
                                 unsafe_allow_html=True)
                         if pa.get("rbi"):
                             st.markdown(
@@ -1990,6 +2299,16 @@ elif page == "⚾ Log Game":
                                 f"color:#e03030'>✕ {pa['fc_out_player'].split()[0]}"
                                 f"→{_bn.get(pa['fc_out_at'],'?')}</div>",
                                 unsafe_allow_html=True)
+                        if pa.get("outcome") == "DP" and pa.get("dp_outs"):
+                            _bn = {1:"1st",2:"2nd",3:"3rd",4:"H"}
+                            for _dpo in pa["dp_outs"]:
+                                if _dpo.get("player") and _dpo.get("base"):
+                                    st.markdown(
+                                        f"<div style='font-size:9px;opacity:0.55;"
+                                        f"text-align:center;color:#e03030'>"
+                                        f"✕ {_dpo['player'].split()[0]}"
+                                        f"→{_bn.get(_dpo['base'],'?')}</div>",
+                                        unsafe_allow_html=True)
                         if not _is_out:
                             _opts = ["1B", "2B", "3B", "H"]
                             _cv   = _opts[_br - 1] if 1 <= _br <= 4 else None
@@ -2003,6 +2322,10 @@ elif page == "⚾ Log Game":
                                         if bv >= 4:
                                             _pa["run_scored"] = True
                                         break
+                                _eid = st.session_state.get("editing_game_id")
+                                if _eid is not None:
+                                    games_data["games"] = [g if x["game_id"] == _eid else x for x in games_data["games"]]
+                                save_games_data(games_data, active_team_id)
                             st.pills("", _opts, default=_cv, key=_pk,
                                      label_visibility="collapsed",
                                      on_change=_save_qb)
@@ -2021,7 +2344,7 @@ elif page == "⚾ Log Game":
                     st.session_state["ss_edit_pa"] = None
                 row[ci].button("+ AB", key=f"add_{player}_{cur_inn}",
                                use_container_width=True, on_click=_new_pa,
-                               disabled=inning_full)
+                               disabled=inning_full or on_bench)
                 ci += 1
 
                 if g.get("live_mode"):
