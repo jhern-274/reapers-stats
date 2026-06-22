@@ -1910,6 +1910,478 @@
         "1": 5,
         "2": 6
       }
+    },
+    {
+      "game_id": 6,
+      "date": "2026-06-22",
+      "opponent": "Dirtbags",
+      "result": "W",
+      "team_runs": 10,
+      "opp_runs": 0,
+      "type": "tournament",
+      "live_mode": false,
+      "home_away": "Home",
+      "tournament_id": "usssa_mills_6_20_26",
+      "current_inning": 5,
+      "lineup": [
+        {
+          "order": 1,
+          "player": "Adrien"
+        },
+        {
+          "order": 2,
+          "player": "Hector"
+        },
+        {
+          "order": 3,
+          "player": "Aramis"
+        },
+        {
+          "order": 4,
+          "player": "Gabby"
+        },
+        {
+          "order": 5,
+          "player": "Nivi"
+        },
+        {
+          "order": 6,
+          "player": "Alex"
+        },
+        {
+          "order": 7,
+          "player": "Robert"
+        },
+        {
+          "order": 8,
+          "player": "Jimmy"
+        },
+        {
+          "order": 9,
+          "player": "Matt"
+        },
+        {
+          "order": 10,
+          "player": "Joe"
+        },
+        {
+          "order": 11,
+          "player": "Capi"
+        }
+      ],
+      "bench_players": [
+        "Ema"
+      ],
+      "substitutions": [],
+      "plate_appearances": [
+        {
+          "pa_num": 1,
+          "inning": 1,
+          "player": "Adrien",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 2,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 4,
+          "inning": 1,
+          "player": "Gabby",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 5,
+          "inning": 1,
+          "player": "Aramis",
+          "outcome": "DP",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [
+            2,
+            1
+          ],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 6,
+          "inning": 1,
+          "player": "Hector",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 1,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 7,
+          "inning": 2,
+          "player": "Nivi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 8,
+          "inning": 2,
+          "player": "Alex",
+          "outcome": "3B",
+          "rbi": 0,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 9,
+          "inning": 2,
+          "player": "Robert",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 3,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 10,
+          "inning": 2,
+          "player": "Jimmy",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 1,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 11,
+          "inning": 2,
+          "player": "Matt",
+          "outcome": "FC",
+          "rbi": 1,
+          "run_scored": false,
+          "bases_reached": 1,
+          "out_at": [],
+          "fc_out_player": "Jimmy",
+          "fc_out_at": 2,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 12,
+          "inning": 2,
+          "player": "Joe",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 13,
+          "inning": 3,
+          "player": "Capi",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 14,
+          "inning": 3,
+          "player": "Adrien",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 15,
+          "inning": 3,
+          "player": "Hector",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 1,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 16,
+          "inning": 3,
+          "player": "Aramis",
+          "outcome": "FC",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 1,
+          "out_at": [],
+          "fc_out_player": "Hector",
+          "fc_out_at": 2,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 17,
+          "inning": 4,
+          "player": "Gabby",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 18,
+          "inning": 4,
+          "player": "Nivi",
+          "outcome": "BB",
+          "rbi": 0,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 19,
+          "inning": 4,
+          "player": "Alex",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 20,
+          "inning": 4,
+          "player": "Robert",
+          "outcome": "1B",
+          "rbi": 1,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 21,
+          "inning": 4,
+          "player": "Jimmy",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 22,
+          "inning": 4,
+          "player": "Matt",
+          "outcome": "1B",
+          "rbi": 2,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 23,
+          "inning": 4,
+          "player": "Joe",
+          "outcome": "E",
+          "rbi": 0,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 24,
+          "inning": 4,
+          "player": "Capi",
+          "outcome": "1B",
+          "rbi": 2,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 25,
+          "inning": 4,
+          "player": "Adrien",
+          "outcome": "1B",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 1,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 26,
+          "inning": 4,
+          "player": "Hector",
+          "outcome": "FC",
+          "rbi": 1,
+          "run_scored": false,
+          "bases_reached": 1,
+          "out_at": [],
+          "fc_out_player": "Adrien",
+          "fc_out_at": 2,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 27,
+          "inning": 4,
+          "player": "Aramis",
+          "outcome": "FC",
+          "rbi": 0,
+          "run_scored": true,
+          "bases_reached": 4,
+          "out_at": [],
+          "fc_out_player": "Hector",
+          "fc_out_at": 2,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 28,
+          "inning": 4,
+          "player": "Gabby",
+          "outcome": "1B",
+          "rbi": 2,
+          "run_scored": false,
+          "bases_reached": 1,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 29,
+          "inning": 4,
+          "player": "Alex",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 30,
+          "inning": 5,
+          "player": "Robert",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 31,
+          "inning": 5,
+          "player": "Jimmy",
+          "outcome": "2B",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 2,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 32,
+          "inning": 5,
+          "player": "Matt",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        },
+        {
+          "pa_num": 33,
+          "inning": 5,
+          "player": "Joe",
+          "outcome": "OUT",
+          "rbi": 0,
+          "run_scored": false,
+          "bases_reached": 0,
+          "out_at": [],
+          "fc_out_player": "",
+          "fc_out_at": 0,
+          "batter_out_at": 0
+        }
+      ],
+      "opp_innings": {}
     }
   ]
 }
