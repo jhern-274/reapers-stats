@@ -1917,12 +1917,12 @@
       "opponent": "Dirtbags",
       "result": "W",
       "team_runs": 10,
-      "opp_runs": 0,
+      "opp_runs": 7,
       "type": "tournament",
       "live_mode": false,
       "home_away": "Home",
       "tournament_id": "usssa_mills_6_20_26",
-      "current_inning": 5,
+      "current_inning": 6,
       "lineup": [
         {
           "order": 1,
@@ -2381,7 +2381,10 @@
           "batter_out_at": 0
         }
       ],
-      "opp_innings": {}
+      "opp_innings": {
+        "5": 0,
+        "4": 7
+      }
     }
   ]
 }
