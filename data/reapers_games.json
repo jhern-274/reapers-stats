@@ -7313,14 +7313,14 @@
       "game_id": 15,
       "date": "2026-07-11",
       "opponent": "Siege",
-      "result": "W",
+      "result": "L",
       "team_runs": 3,
-      "opp_runs": 0,
+      "opp_runs": 10,
       "type": "tournament",
       "live_mode": true,
       "home_away": "Away",
       "tournament_id": "usssa_port_st_lucie_7_11",
-      "current_inning": 5,
+      "current_inning": 6,
       "lineup": [
         {
           "order": 1,
@@ -7755,7 +7755,9 @@
           "dp_outs": []
         }
       ],
-      "opp_innings": {}
+      "opp_innings": {
+        "5": 10
+      }
     }
   ]
 }
