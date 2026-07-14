@@ -6621,7 +6621,7 @@
           "out_at": [],
           "fc_out_player": "",
           "fc_out_at": 0,
-          "batter_out_at": 0,
+          "batter_out_at": 2,
           "driven_in_by": "",
           "driven_by_pa_num": null,
           "dp_outs": []
