@@ -473,6 +473,10 @@ def _player_photo(name: str):
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return PLAYERS_DIR / f"{slug}.jpg"
 
+def _player_photo_original(name: str):
+    """The full uploaded photo the cropped one was cut from, so it can be re-cropped later."""
+    return PLAYERS_DIR / "originals" / _player_photo(name).name
+
 def _file_ver(path: Path) -> tuple:
     """(modified time, size) used as a cache key, so a cached result is dropped as soon as the file changes."""
     try:
@@ -1622,21 +1626,44 @@ elif page == "🧢 My Stats":
                     save_roster(roster_data, active_team_id)
                     st.success("Number saved." if _num else "Number cleared.")
                     st.rerun()
-    with _c_nm.expander("📷 Add or change photo (team login)"):
+    def _kpis(items):
+        st.markdown('<div class="kpi-grid">' + "".join(
+            f'<div class="kpi-card"><div class="label">{it[0]}</div><div class="value">{it[1]}</div>'
+            + (f'<div class="hint">{it[2]}</div>' if len(it) > 2 and it[2] else "") + "</div>"
+            for it in items) + "</div>", unsafe_allow_html=True)
+
+    st.markdown("##### 🃏 Player card")
+    _card_slot = st.container()  # filled in once team-leader categories are known (below)
+
+    with st.expander("✂️ Crop or change photo (team login)"):
         if _team_gate("mystats"):
-            _up = st.file_uploader("Choose a photo", type=["jpg", "jpeg", "png", "webp"], key=f"pp_{_me}")
-            _crop = None
+            import base64, io
+            from PIL import Image
+            _photo, _orig = _player_photo(_me), _player_photo_original(_me)
+            _up = st.file_uploader("Upload a new photo (optional)", type=["jpg", "jpeg", "png", "webp"],
+                                   key=f"pp_{_me}")
+            _saved_crop = (_me_entry or {}).get("photo_crop")
             if _up is not None:
-                import base64, io
-                from PIL import Image
-                _src = _upload_src(_up.file_id, _up.getvalue())
+                _src, _sid, _dflt = _upload_src(_up.file_id, _up.getvalue()), _up.file_id, None
+            elif _orig.exists():  # re-crop from the full original
+                _sid = f"orig{_file_ver(_orig)}"
+                _src, _dflt = _upload_src(_sid, _orig.read_bytes()), _saved_crop
+            elif _photo.exists():  # older photo with no original: can zoom in and move within it
+                _sid = f"cur{_file_ver(_photo)}"
+                _src, _dflt = _upload_src(_sid, _photo.read_bytes()), [1.0, 50, 50]
+            else:
+                _src = None
+            _crop = None
+            if _src is None:
+                st.caption("No photo yet. Upload one above, then crop it here.")
+            else:
                 _w, _h = _src.size
-                st.caption("Crop it: zoom in, then slide to frame yourself. The preview shows the round photo and the card.")
-                _ck = f"{_me}_{_up.file_id}"  # new upload → sliders start fresh
-                _z = st.slider("🔍 Zoom", 1.0, 4.0, 1.0, 0.05, key=f"crop_z_{_ck}")
-                _x = st.slider("↔ Left / right", 0, 100, 50, disabled=_w <= _h and _z == 1.0, key=f"crop_x_{_ck}")
-                _y = st.slider("↕ Up / down", 0, 100, 35 if _h > _w else 50,
-                               disabled=_h <= _w and _z == 1.0, key=f"crop_y_{_ck}")
+                st.caption("Zoom in, then slide to frame yourself. The preview shows the round photo and the card.")
+                _z0, _x0, _y0 = _dflt or [1.0, 50, 35 if _h > _w else 50]
+                _ck = f"{_me}_{_sid}"  # a different photo → sliders start fresh
+                _z = st.slider("🔍 Zoom", 1.0, 4.0, float(_z0), 0.05, key=f"crop_z_{_ck}")
+                _x = st.slider("↔ Left / right", 0, 100, int(_x0), disabled=_w <= _h and _z == 1.0, key=f"crop_x_{_ck}")
+                _y = st.slider("↕ Up / down", 0, 100, int(_y0), disabled=_h <= _w and _z == 1.0, key=f"crop_y_{_ck}")
                 _crop = _square_crop(_src, _z, _x, _y).resize((600, 600), Image.LANCZOS)
                 _pb = io.BytesIO()
                 _crop.resize((300, 300), Image.LANCZOS).save(_pb, "JPEG", quality=85)
@@ -1649,26 +1676,26 @@ elif page == "🧢 My Stats":
                     f'border:3px solid #e8789f;background:#272d3d url({_pu}) center 30% / cover no-repeat"></div>'
                     '<div style="font-size:11px;opacity:0.6;margin-top:4px">Player card</div></div></div>',
                     unsafe_allow_html=True)
-            if st.button("Save photo", disabled=_crop is None, key="pp_save"):
-                import io
-                _img = _crop
-                _buf = io.BytesIO()
-                _img.save(_buf, "JPEG", quality=88)
+                if _up is None and not _orig.exists():
+                    st.caption("This photo was saved before cropping existed, so you can zoom in and move but "
+                               "not zoom out. Upload it again to get the full picture back.")
+            if st.button("Save photo", disabled=_crop is None, key="pp_save", type="primary"):
                 PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
-                _dest = _player_photo(_me)
-                _dest.write_bytes(_buf.getvalue())
-                _github_sync(_dest, _buf.getvalue())
+                if _up is not None:  # keep the full upload so it can be re-cropped later
+                    _ob = io.BytesIO()
+                    _src.save(_ob, "JPEG", quality=85)
+                    _orig.parent.mkdir(parents=True, exist_ok=True)
+                    _orig.write_bytes(_ob.getvalue())
+                    _github_sync(_orig, _ob.getvalue())
+                _buf = io.BytesIO()
+                _crop.save(_buf, "JPEG", quality=88)
+                _photo.write_bytes(_buf.getvalue())
+                _github_sync(_photo, _buf.getvalue())
+                if _me_entry is not None and (_up is not None or _orig.exists()):
+                    _me_entry["photo_crop"] = [round(_z, 2), _x, _y]
+                    save_roster(roster_data, active_team_id)
                 st.success("Photo saved.")
                 st.rerun()
-
-    def _kpis(items):
-        st.markdown('<div class="kpi-grid">' + "".join(
-            f'<div class="kpi-card"><div class="label">{it[0]}</div><div class="value">{it[1]}</div>'
-            + (f'<div class="hint">{it[2]}</div>' if len(it) > 2 and it[2] else "") + "</div>"
-            for it in items) + "</div>", unsafe_allow_html=True)
-
-    st.markdown("##### 🃏 Player card")
-    _card_slot = st.container()  # filled in once team-leader categories are known (below)
 
     _r3 = lambda k: f"{_row[k]:.3f}"
     _kpis([("Games", int(_row["G"])), ("AVG", _r3("AVG")), ("OBP", _r3("OBP")), ("SLG", _r3("SLG")), ("OPS", _r3("OPS"))])
