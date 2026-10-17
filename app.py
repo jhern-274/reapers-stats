@@ -201,6 +201,11 @@ CSS = """
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
 .pcard-front .plate { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 74px; border-radius: 12px;
   background: linear-gradient(90deg, #e8789f, #b45f9a); color: #fff; padding: 9px 14px; box-sizing: border-box; }
+.pcard-front .plate.has-num { display: flex; align-items: center; gap: 10px; }
+.pcard-front .plate .who { flex: 1; min-width: 0; }
+.pcard-front .num { font-size: 40px; font-weight: 900; line-height: 1; letter-spacing: -1px;
+  font-variant-numeric: tabular-nums; text-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+.pcard-front .num small { font-size: 20px; font-weight: 800; opacity: 0.8; margin-right: 1px; vertical-align: 12px; }
 .pcard-front .name { font-size: 24px; font-weight: 800; line-height: 1.1; letter-spacing: -0.3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcard-front .meta { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
@@ -515,11 +520,11 @@ def _avatar_html(name: str) -> str:
     return f'<div class="avatar ph">{initials}</div>'
 
 def _player_card_html(name: str, positions: str, team: str, scope: str, row, streaks: dict, leads: list,
-                      ranks: dict, qual_note: str) -> str:
+                      ranks: dict, qual_note: str, number: str = "") -> str:
     """Two-sided player card: photo on the front, stats on the back. Tapping the card flips it.
     `ranks` maps a stat to its label (e.g. "2nd of 11"); it's empty when the player doesn't qualify."""
     from html import escape
-    nm, pos = escape(name), escape(positions)
+    nm, pos, num = escape(name), escape(positions), escape(number)
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "player"
     photo = _player_photo(name)
     if photo.exists():
@@ -552,9 +557,12 @@ def _player_card_html(name: str, positions: str, team: str, scope: str, row, str
         f'<div class="pcard-wrap"><input type="checkbox" id="pcard-{slug}" class="pcard-toggle">'
         f'<label class="pcard" for="pcard-{slug}" title="Tap to flip"><div class="pcard-inner">'
         f'<div class="pcard-face pcard-front">{pic}{logo}'
-        f'<div class="plate"><div class="name">{nm}</div><div class="meta">{meta}</div></div></div>'
+        f'<div class="plate{" has-num" if num else ""}"><div class="who"><div class="name">{nm}</div>'
+        f'<div class="meta">{meta}</div></div>'
+        + (f'<div class="num"><small>#</small>{num}</div>' if num else "") + '</div></div>'
         f'<div class="pcard-face pcard-back">'
-        f'<div class="hd"><span class="name">{nm}</span><span class="pos">{pos}</span></div>'
+        f'<div class="hd"><span class="name">{nm}</span>'
+        f'<span class="pos">{" · ".join(x for x in (f"#{num}" if num else "", pos) if x)}</span></div>'
         f'<div class="scope">{escape(scope)}</div><div class="grid">{grid}</div>'
         f'<div class="foot">{foot}</div></div>'
         f'</div></label><div class="pcard-hint">Tap the card to flip it</div></div>'
@@ -1730,7 +1738,8 @@ elif page == "🧢 My Stats":
         _card_ranks = {}
         _qnote = f"Not ranked yet: needs {_min_ab} AB ({int(_row['AB'])} so far)"
     _card_slot.markdown(_player_card_html(_me, _pos, active_team_name, _scope, _row, _st, _leads,
-                                          _card_ranks, _qnote), unsafe_allow_html=True)
+                                          _card_ranks, _qnote, (_me_entry or {}).get("number", "")),
+                        unsafe_allow_html=True)
     if _leads:
         st.markdown("**👑 Leads the team in:** " + ", ".join(_leads))
     if _chips:
