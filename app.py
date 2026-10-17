@@ -14,6 +14,10 @@ from streamlit_sortables import sort_items
 DATA_DIR    = Path(__file__).parent / "data"
 CONFIG_FILE = DATA_DIR / "config.json"
 PHOTO_FILE  = Path(__file__).parent / "assets" / "team_photo.jpg"
+LOGO_FILE   = Path(__file__).parent / "assets" / "logo.png"
+PHOTOS_DIR  = Path(__file__).parent / "assets" / "photos"
+PLAYERS_DIR = Path(__file__).parent / "assets" / "players"
+CAPTIONS_FILE = PHOTOS_DIR / "captions.json"
 
 _LEG_ROSTER = DATA_DIR / "roster.json"
 _LEG_GAMES  = DATA_DIR / "games.json"
@@ -120,17 +124,18 @@ CSS = """
 <style>
 .hero {
   padding: 28px 32px; border-radius: 16px;
-  background: linear-gradient(135deg, #0a0a0a 0%, #1f0015 45%, #420028 100%);
+  background: linear-gradient(180deg, #2a3042 0%, #272d3d 100%);
   color: #fff; margin-bottom: 8px;
-  box-shadow: 0 4px 32px rgba(255,20,147,0.25); text-align: center;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.07); text-align: center;
 }
+.hero-logo { max-height: 130px; max-width: 100%; margin: 0 auto 4px; display: block; }
 .hero h1 { font-size: 44px; margin: 0; font-weight: 800; letter-spacing: -1px; }
 .hero .sub { opacity: 0.8; font-size: 15px; margin-top: 8px; }
 .hero .badges { margin-top: 14px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .badge {
   display: inline-block; padding: 5px 14px;
-  background: rgba(255,20,147,0.18); color: #ff69b4;
-  border: 1px solid rgba(255,20,147,0.45);
+  background: rgba(232,120,159,0.18); color: #f0a0bc;
+  border: 1px solid rgba(232,120,159,0.45);
   border-radius: 999px; font-weight: 700; font-size: 13px;
 }
 .badge.green { background: rgba(80,200,120,0.18); color: #8ee8a8; border-color: rgba(80,200,120,0.4); }
@@ -141,60 +146,71 @@ CSS = """
   gap: 10px; margin: 8px 0 20px 0;
 }
 .kpi-card {
-  border: 1px solid rgba(255,20,147,0.22); border-radius: 10px;
-  padding: 14px 16px; background: rgba(255,20,147,0.05);
+  border: 1px solid rgba(255,255,255,0.09); border-radius: 10px;
+  padding: 14px 16px; background: rgba(255,255,255,0.03);
 }
 .kpi-card .label { font-size: 11px; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
-.kpi-card .value { font-size: 26px; font-weight: 800; margin-top: 4px; line-height: 1.1; }
+.kpi-card .value { font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 800; margin-top: 4px; line-height: 1.1; }
 .kpi-card .hint  { font-size: 11px; opacity: 0.55; margin-top: 4px; }
 
 .leader-card {
-  border: 1px solid rgba(255,20,147,0.22); border-radius: 12px;
-  padding: 16px 18px; background: rgba(255,20,147,0.04); height: 100%;
+  border: 1px solid rgba(255,255,255,0.09); border-radius: 12px;
+  padding: 16px 18px; background: rgba(255,255,255,0.03); height: 100%;
 }
 .leader-card h4 { margin: 0 0 12px 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.65; font-weight: 700; }
 .leader-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; font-size: 15px; }
 .leader-row .rank { display: inline-block; width: 22px; text-align: center; font-weight: 800; margin-right: 8px; }
-.leader-row.r1 .rank { color: #FF1493; }
-.leader-row.r2 .rank { color: #ff69b4; }
-.leader-row.r3 .rank { color: #ffaad4; }
+.leader-row.r1 .rank { color: #e8789f; }
+.leader-row.r2 .rank { color: #f0a0bc; }
+.leader-row.r3 .rank { color: #f6c1d4; }
 .leader-row .name { flex: 1; font-weight: 500; }
 .leader-row .val  { font-family: ui-monospace, "SF Mono", Consolas, monospace; opacity: 0.95; font-weight: 600; }
 
 .recap {
-  border-left: 4px solid #FF1493; background: rgba(255,20,147,0.07);
+  border-left: 4px solid #e8789f; background: rgba(232,120,159,0.07);
   padding: 14px 18px; border-radius: 6px; margin: 8px 0 20px 0;
 }
 .recap .title { font-size: 13px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
 .recap .score { font-size: 22px; font-weight: 800; margin: 4px 0; }
 
+.avatar { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; display: block;
+  border: 3px solid rgba(232,120,159,0.55); }
+.avatar.ph { display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 800;
+  background: rgba(232,120,159,0.15); color: #f0a0bc; }
+.recent { margin: 4px 0 8px; }
+.recent .title { font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.recent-row { display: grid; grid-template-columns: 26px 1fr 64px 92px; gap: 8px; padding: 7px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.07); font-size: 14px; font-variant-numeric: tabular-nums; }
+.recent-row .res { font-weight: 800; } .recent-row .res.W { color: #8ee8a8; } .recent-row .res.L { color: #ff8a8a; }
+.recent-row .sc { text-align: right; } .recent-row .dt { text-align: right; opacity: 0.55; }
+
 .stats-table-wrap {
   max-width: 1100px; margin: 8px auto; overflow-x: auto;
-  border: 1px solid rgba(255,20,147,0.2); border-radius: 10px; background: #0a0a0a;
+  border: 1px solid rgba(232,120,159,0.2); border-radius: 10px; background: #1e2330;
 }
-.stats-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; color: #fafafa; }
+.stats-table { font-variant-numeric: tabular-nums; border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; color: #e8eaf0; }
 .stats-table th, .stats-table td {
   padding: 10px 14px; text-align: center;
-  border-bottom: 1px solid rgba(255,20,147,0.08); white-space: nowrap;
+  border-bottom: 1px solid rgba(232,120,159,0.08); white-space: nowrap;
 }
 .stats-table tbody tr:last-child td { border-bottom: none; }
 .stats-table th {
   font-weight: 700; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase;
-  opacity: 0.75; background: #14000d; position: sticky; top: 0; z-index: 1;
+  opacity: 0.75; background: #2b3245; position: sticky; top: 0; z-index: 1;
 }
 .stats-table td.player-cell {
   text-align: left; font-weight: 600; position: sticky; left: 0;
-  background: #0a0a0a; z-index: 2; border-right: 1px solid rgba(255,20,147,0.18);
+  background: #1e2330; z-index: 2; border-right: 1px solid rgba(232,120,159,0.18);
 }
 .stats-table th.player-th {
   text-align: left; position: sticky; left: 0; top: 0;
-  background: #14000d; z-index: 3; border-right: 1px solid rgba(255,20,147,0.18);
+  background: #2b3245; z-index: 3; border-right: 1px solid rgba(232,120,159,0.18);
 }
 
 .cmp-wrap { max-width: 720px; margin: 0 auto; }
 .cmp-header {
   display: grid; grid-template-columns: 1fr 100px 1fr; align-items: center;
-  padding: 18px 0; border-bottom: 2px solid rgba(255,20,147,0.3); margin-bottom: 6px;
+  padding: 18px 0; border-bottom: 2px solid rgba(232,120,159,0.3); margin-bottom: 6px;
 }
 .cmp-name { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
 .cmp-name.left  { text-align: right; padding-right: 12px; }
@@ -202,23 +218,23 @@ CSS = """
 .cmp-header .vs { text-align: center; font-size: 13px; font-weight: 700; opacity: 0.5; text-transform: uppercase; letter-spacing: 2px; }
 .cmp-row {
   display: grid; grid-template-columns: 1fr 140px 1fr; align-items: center;
-  padding: 11px 0; border-bottom: 1px solid rgba(255,20,147,0.08);
+  padding: 11px 0; border-bottom: 1px solid rgba(232,120,159,0.08);
 }
 .cmp-row:last-child { border-bottom: none; }
 .cmp-val { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 18px; font-weight: 500; opacity: 0.55; }
 .cmp-val.left  { text-align: right; padding-right: 14px; }
 .cmp-val.right { text-align: left;  padding-left:  14px; }
-.cmp-val.winner { color: #FF1493; font-weight: 800; opacity: 1; }
+.cmp-val.winner { color: #e8789f; font-weight: 800; opacity: 1; }
 .cmp-val.tie    { opacity: 0.85; }
 .cmp-stat { text-align: center; font-size: 11px; font-weight: 600; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
 .cmp-tally {
   text-align: center; margin-top: 16px; padding-top: 14px;
-  border-top: 2px solid rgba(255,20,147,0.3); font-size: 14px; opacity: 0.9;
+  border-top: 2px solid rgba(232,120,159,0.3); font-size: 14px; opacity: 0.9;
 }
 
 .hr-row {
   display: flex; align-items: center; padding: 10px 4px;
-  border-bottom: 1px solid rgba(255,20,147,0.1);
+  border-bottom: 1px solid rgba(232,120,159,0.1);
 }
 .hr-row:last-child { border-bottom: none; }
 .hr-name    { flex: 0 0 140px; font-weight: 600; font-size: 15px; }
@@ -228,8 +244,8 @@ CSS = """
   display: inline-block; width: 16px; height: 16px;
   border-radius: 50%; margin-right: 4px; vertical-align: middle;
 }
-.hr-otf { background: #FF1493; box-shadow: 0 0 6px rgba(255,20,147,0.6); }
-.hr-itp { background: transparent; border: 2px solid #FF1493; }
+.hr-otf { background: #e8789f; box-shadow: 0 0 6px rgba(232,120,159,0.6); }
+.hr-itp { background: transparent; border: 2px solid #e8789f; }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
@@ -365,6 +381,55 @@ button[aria-label^="FC"]
 
 # ── I/O ───────────────────────────────────────────────────────────────────────
 
+import hashlib, hmac
+
+_TEAM_USER_HASH = "9ab7ab50a28e4dadce25052845da99dacba72fb303b4cf6691d0d4c24f4fbd1a"
+_TEAM_PASS_HASH = "67e01f63e5b900d416907ac92c51c9a3dabcbe843a28da05ebe67815d4f82714"
+
+def _team_hash(v: str) -> str:
+    return hashlib.sha256(("reapers-stats|" + v.strip().lower()).encode()).hexdigest()
+
+def _team_login_ok(user: str, pw: str) -> bool:
+    """Light team gate. Streamlit secrets team_username/team_password override the built-in hashes."""
+    try:
+        su, sp = st.secrets.get("team_username", ""), st.secrets.get("team_password", "")
+    except Exception:
+        su = sp = ""
+    if su and sp:
+        return hmac.compare_digest(_team_hash(user), _team_hash(su)) and hmac.compare_digest(_team_hash(pw), _team_hash(sp))
+    return hmac.compare_digest(_team_hash(user), _TEAM_USER_HASH) and hmac.compare_digest(_team_hash(pw), _TEAM_PASS_HASH)
+
+def _team_gate(prefix: str) -> bool:
+    """Render the team login if needed; True once the visitor is unlocked."""
+    if st.session_state.get("team_ok"):
+        return True
+    st.caption("Team members only. Viewing doesn't need a login.")
+    _u = st.text_input("Username", key=f"{prefix}_user")
+    _p = st.text_input("Password", type="password", key=f"{prefix}_pass")
+    if st.button("Unlock", key=f"{prefix}_unlock"):
+        if _team_login_ok(_u, _p):
+            st.session_state["team_ok"] = True
+            st.rerun()
+        else:
+            st.error("Wrong username or password.")
+    return False
+
+def _player_photo(name: str):
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return PLAYERS_DIR / f"{slug}.jpg"
+
+def _avatar_html(name: str) -> str:
+    import base64
+    p = _player_photo(name)
+    if p.exists():
+        return f'<img class="avatar" src="data:image/jpeg;base64,{base64.b64encode(p.read_bytes()).decode()}" alt="{name}">'
+    initials = "".join(w[0] for w in name.split()[:2]).upper()
+    return f'<div class="avatar ph">{initials}</div>'
+
+def _logo_b64() -> str:
+    import base64
+    return base64.b64encode(LOGO_FILE.read_bytes()).decode() if LOGO_FILE.exists() else ""
+
 def _load(path: Path, default):
     if path.exists():
         try:
@@ -373,7 +438,7 @@ def _load(path: Path, default):
             return default
     return default
 
-def _github_sync(path: Path, content: str) -> None:
+def _github_sync(path: Path, content) -> None:
     try:
         token  = st.secrets.get("github_token", "")
         repo   = st.secrets.get("github_repo", "")
@@ -386,7 +451,7 @@ def _github_sync(path: Path, content: str) -> None:
         hdrs = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
         r = _req.get(url, headers=hdrs, timeout=8)
         sha = r.json().get("sha") if r.status_code == 200 else None
-        body = {"message": f"data: {rel}", "content": base64.b64encode(content.encode()).decode(), "branch": branch}
+        body = {"message": f"data: {rel}", "content": base64.b64encode(content if isinstance(content, bytes) else content.encode()).decode(), "branch": branch}
         if sha:
             body["sha"] = sha
         _req.put(url, json=body, headers=hdrs, timeout=10)
@@ -446,6 +511,51 @@ def _run_migration() -> dict:
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
 
+def player_streaks(all_games: list[dict], player: str, walks_as_hits: bool) -> dict:
+    """Hit streaks across every game: consecutive games with a hit and consecutive at-bats with a hit.
+
+    Walks and sac flies are not at-bats, so they neither extend nor break a streak (a walk counts as
+    a hit when "walks count as hits" is on). A game with no at-bats is skipped, and games the player
+    missed don't count either way.
+    """
+    games_seq, abs_seq = [], []
+    for g in sorted(all_games, key=lambda g: (g.get("date", ""), g["game_id"])):
+        pas = [p for p in g.get("plate_appearances", []) if p["player"] == player]
+        pas.sort(key=lambda p: (p.get("inning", 0), p.get("pa_num", 0)))
+        n_ab, n_hit = 0, 0
+        for p in pas:
+            oc = p.get("outcome", "OUT")
+            if oc == "SF" or (oc == "BB" and not walks_as_hits):
+                continue
+            hit = oc in HIT_CODES or (oc == "BB" and walks_as_hits)
+            abs_seq.append((g["date"], hit))
+            n_ab += 1
+            n_hit += hit
+        if n_ab:
+            games_seq.append((g["date"], n_hit > 0))
+
+    def scan(seq):
+        cur = best = 0
+        cur_start = best_span = None
+        for i, (_, hit) in enumerate(seq):
+            if hit:
+                if cur == 0:
+                    cur_start = i
+                cur += 1
+                if cur > best:
+                    best, best_span = cur, (cur_start, i)
+            else:
+                cur = 0
+        span = (lambda a, b: (seq[a][0], seq[b][0])) if seq else None
+        return {"current": cur,
+                "current_since": seq[cur_start][0] if cur else None,
+                "best": best,
+                "best_span": span(*best_span) if best_span else None,
+                "total": len(seq)}
+
+    return {"games": scan(games_seq), "abs": scan(abs_seq)}
+
+
 def pas_to_stat_row(pas: list[dict], walks_as_hits: bool) -> dict:
     s = {"AB": 0, "1B": 0, "2B": 0, "3B": 0, "HR_OTF": 0, "HR_ITP": 0, "BB": 0, "SF": 0, "R": 0, "RBI": 0, "K": 0}
     for pa in pas:
@@ -497,7 +607,7 @@ def _active_bench_at(lineup: list, bench_initial: list,
 def _mini_diamond_svg(bases_reached: int, out_at=None) -> str:
     """Tiny 36×36 inline diamond for scoresheet chips."""
     out_at = out_at or []
-    pink, dim, ldim, red = "#FF1493", "rgba(255,255,255,0.12)", "rgba(255,255,255,0.22)", "#e03030"
+    pink, dim, ldim, red = "#e8789f", "rgba(255,255,255,0.12)", "rgba(255,255,255,0.22)", "#e03030"
     def _bc(n): return red if n in out_at else (pink if bases_reached >= n else dim)
     b1, b2, b3, bh = _bc(1), _bc(2), _bc(3), _bc(4)
     l01 = pink if bases_reached >= 1 else ldim
@@ -531,7 +641,7 @@ def _mini_diamond_svg(bases_reached: int, out_at=None) -> str:
 def _diamond_svg(bases_reached: int, out_at=None) -> str:
     """Return an SVG baseball diamond with the runner's path lit up to `bases_reached`."""
     out_at = out_at or []
-    pink, dim, line_dim, red = "#FF1493", "rgba(255,255,255,0.12)", "rgba(255,255,255,0.22)", "#e03030"
+    pink, dim, line_dim, red = "#e8789f", "rgba(255,255,255,0.12)", "rgba(255,255,255,0.22)", "#e03030"
     def _bc(n): return red if n in out_at else (pink if bases_reached >= n else dim)
     b1, b2, b3, bh = _bc(1), _bc(2), _bc(3), _bc(4)
     l01 = pink if bases_reached >= 1 else line_dim
@@ -730,14 +840,24 @@ def _event_for(t: dict) -> str:
 
 _tid_event = {t["id"]: _event_for(t) for t in tournaments}
 
+_t_first: dict = {}
+for _g in games_data.get("games", []):
+    _t, _d = _g.get("tournament_id"), _g.get("date", "")
+    if _t and _d and (_t not in _t_first or _d < _t_first[_t]):
+        _t_first[_t] = _d
+
+def _chrono(ts: list) -> list:
+    """Tournaments in date order (first game date), undated ones last."""
+    return sorted(ts, key=lambda t: (_t_first.get(t["id"], "9999-12-31"), t["name"].lower()))
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
     teams = config.get("teams", [])
 
     if len(teams) > 1:
-        team_names = [t["name"] for t in teams]
-        cur_idx = next((i for i, t in enumerate(teams) if t["id"] == active_team_id), 0)
+        team_names = sorted((t["name"] for t in teams), key=str.lower)
+        cur_idx = next((i for i, n in enumerate(team_names) if n == active_team_name), 0)
         sel_team = st.selectbox("Team", team_names, index=cur_idx)
         new_tid = next(t["id"] for t in teams if t["name"] == sel_team)
         if new_tid != active_team_id:
@@ -746,13 +866,17 @@ with st.sidebar:
             st.session_state.pop("lg_game", None)
             st.rerun()
 
-    st.markdown(f"## 💀 {active_team_name}")
+    if LOGO_FILE.exists():
+        st.image(str(LOGO_FILE), use_container_width=True)
+    else:
+        st.markdown(f"## 💀 {active_team_name}")
 
     if tournaments:
-        _events = list(dict.fromkeys(_tid_event[t["id"]] for t in tournaments))
+        _tourn_sorted = _chrono(tournaments)
+        _events = list(dict.fromkeys(_tid_event[t["id"]] for t in _tourn_sorted))
         sel_event = st.selectbox("🏷️ Event", ["All Events"] + _events)
         active_event = None if sel_event == "All Events" else sel_event
-        _t_pool = [t for t in tournaments if active_event is None or _tid_event[t["id"]] == active_event]
+        _t_pool = [t for t in _tourn_sorted if active_event is None or _tid_event[t["id"]] == active_event]
         tourn_opts = ["All Tournaments"] + [t["name"] for t in _t_pool]
         cur_tourn = st.session_state.active_tournament_id
         tourn_idx = 0
@@ -774,10 +898,10 @@ with st.sidebar:
     active_tournament_id = st.session_state.active_tournament_id
 
     st.markdown("---")
-    _pages = ["📊 Dashboard", "👥 Roster", "⚾ Log Game", "📋 History", "⚙️ Settings"]
+    _pages = ["📊 Dashboard", "🧢 My Stats", "👥 Roster", "⚾ Log Game", "📋 History", "📸 Photos", "⚙️ Settings"]
     page = st.radio(
         "Navigate", _pages,
-        index=st.session_state.get("_nav_idx", 0),
+        index=st.session_state.get("_nav_idx", 1 if st.query_params.get("player") else 0),
         label_visibility="collapsed",
     )
     st.session_state["_nav_idx"] = _pages.index(page)
@@ -833,31 +957,46 @@ if page == "📊 Dashboard":
     g_badge = f'<span class="badge">{len(games)} game{"s" if len(games) != 1 else ""}</span>'
     d_badge = f'<span class="badge">Run diff {rf - ra:+d}</span>'
 
+    _lg = _logo_b64()
+    _hero_title = (f'<img class="hero-logo" src="data:image/png;base64,{_lg}" alt="{active_team_name}">'
+                   if _lg else f'<h1>💀 {active_team_name}</h1>')
     st.markdown(
-        f'<div class="hero"><h1>💀 {active_team_name}</h1>'
+        f'<div class="hero">{_hero_title}'
         f'<div class="sub">{tourn_label}</div>'
         f'<div class="badges">{r_badge}{g_badge}{d_badge}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
-    if PHOTO_FILE.exists():
-        col_img, _ = st.columns([1, 3])
-        col_img.image(str(PHOTO_FILE), use_container_width=True)
-
     if not games:
+        if PHOTO_FILE.exists():
+            st.image(str(PHOTO_FILE), width=360)
         st.info("No games logged yet — go to **Log Game** to add your first game.")
         st.stop()
 
     latest = games[-1]
     rw = {"W": "Won", "L": "Lost", "T": "Tied"}.get(latest["result"], latest["result"])
-    st.markdown(
+    _recap_html = (
         f'<div class="recap">'
         f'<div class="title">Latest game · {latest["date"]}</div>'
         f'<div class="score">{rw} {latest["team_runs"]}–{latest["opp_runs"]} vs {latest["opponent"]}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
+        f'</div>'
     )
+    _recent = "".join(
+        f'<div class="recent-row"><span class="res {g.get("result", "")}">{g.get("result") or "—"}</span>'
+        f'<span class="opp">{g["opponent"]}</span>'
+        f'<span class="sc">{g["team_runs"]}–{g["opp_runs"]}</span>'
+        f'<span class="dt">{g["date"]}</span></div>'
+        for g in reversed(games[-6:-1])
+    )
+    if _recent:
+        _recap_html += f'<div class="recent"><div class="title">Previous games</div>{_recent}</div>'
+    if PHOTO_FILE.exists():
+        col_img, col_rec = st.columns([1, 2])
+        col_img.image(str(PHOTO_FILE), use_container_width=True)
+        col_rec.markdown(_recap_html, unsafe_allow_html=True)
+    else:
+        st.markdown(_recap_html, unsafe_allow_html=True)
 
     if not totals.empty:
         gp       = len(games)
@@ -915,7 +1054,7 @@ if page == "📊 Dashboard":
                         color=alt.Color("Type:N",
                             scale=alt.Scale(
                                 domain=["Singles", "Doubles", "Triples", "Home Runs"],
-                                range=["#3b0a2a", "#8b0057", "#cc0080", "#FF1493"],
+                                range=["#6b5b8f", "#9a6fa8", "#c47aa5", "#e8789f"],
                             ), legend=None),
                         tooltip=["Type:N", "Count:Q", alt.Tooltip("Pct:Q", format=".1f", title="% of hits")],
                     ).properties(height=260)
@@ -929,7 +1068,7 @@ if page == "📊 Dashboard":
                 if not chart_df.empty:
                     st.altair_chart(
                         _alt_theme(
-                            alt.Chart(chart_df).mark_bar(color="#FF1493")
+                            alt.Chart(chart_df).mark_bar(color="#e8789f")
                             .encode(
                                 y=alt.Y("player:N", sort="-x", title=None),
                                 x=alt.X("OPS:Q", axis=alt.Axis(format=".3f")),
@@ -997,7 +1136,7 @@ if page == "📊 Dashboard":
         if totals.empty or len(totals) < 2:
             st.info("Need at least 2 players with stats to compare.")
         else:
-            pl = sorted(totals["player"].tolist())
+            pl = sorted(totals["player"].tolist(), key=str.lower)
             ca, cb = st.columns(2)
             p1 = ca.selectbox("Player A", pl, index=0)
             p2 = cb.selectbox("Player B", pl, index=min(1, len(pl) - 1))
@@ -1070,7 +1209,7 @@ if page == "📊 Dashboard":
                 cols.append("BB")
             cols += ["SF", "R", "RBI", "K", "AVG", "OBP", "SLG", "OPS"]
             cols = [c for c in cols if c in totals.columns]
-            sort_opts = [c for c in cols if c != "player"]
+            sort_opts = sorted((c for c in cols if c != "player"), key=str.lower)
             _def_sort = sort_opts.index("OPS") if "OPS" in sort_opts else 0
             sort_by = st.selectbox("Sort by", sort_opts, index=_def_sort)
             render_stats_table(
@@ -1091,7 +1230,7 @@ if page == "📊 Dashboard":
 
         if not pg.empty:
             st.markdown("##### Per-player game log")
-            sel = st.selectbox("Player", sorted(pg["player"].unique()))
+            sel = st.selectbox("Player", sorted(pg["player"].unique(), key=str.lower))
             pdf = pg[pg["player"] == sel].sort_values("game_id")
             cols = ["date", "event", "opponent", "AB", "H", "1B", "2B", "3B", "HR", "HR_OTF", "HR_ITP"]
             if not walks_as_hits:
@@ -1108,7 +1247,7 @@ if page == "📊 Dashboard":
             st.info("No game data yet.")
         else:
             _tid_to_name = {t["id"]: t["name"] for t in tournaments}
-            _p_sel = st.selectbox("Player", sorted(pg["player"].unique()), key="player_tab_sel")
+            _p_sel = st.selectbox("Player", sorted(pg["player"].unique(), key=str.lower), key="player_tab_sel")
             _pdf = pg[pg["player"] == _p_sel].sort_values("game_id").copy()
             _pcols = ["date", "opponent", "AB", "H", "2B", "3B", "HR"]
             if not walks_as_hits:
@@ -1215,6 +1354,154 @@ if page == "📊 Dashboard":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: ROSTER
 # ═══════════════════════════════════════════════════════════════════════════════
+
+elif page == "🧢 My Stats":
+    st.markdown("## 🧢 My Stats")
+    if pg.empty:
+        st.info("No games for this selection yet.")
+        st.stop()
+
+    _names = sorted(pg["player"].unique(), key=str.lower)
+    _qp = st.query_params.get("player", "")
+    if st.session_state.get("mystats_player") not in _names:
+        st.session_state["mystats_player"] = _qp if _qp in _names else _names[0]
+    _me = st.selectbox("Pick your name", _names, key="mystats_player")
+    st.query_params["player"] = _me
+    st.caption("Tip: bookmark this page after picking your name and it will open on your stats.")
+
+    _row = totals[totals["player"] == _me].iloc[0]
+    _pos = next((", ".join(p.get("positions") or []) for p in roster_data.get("players", []) if p["name"] == _me), "")
+    _scope = "All games" if not active_tournament_id and not active_event else (
+        next((t["name"] for t in tournaments if t["id"] == active_tournament_id), active_event))
+    _c_av, _c_nm = st.columns([1, 4])
+    _c_av.markdown(_avatar_html(_me), unsafe_allow_html=True)
+    _c_nm.markdown(f"### {_me}" + (f" · {_pos}" if _pos else ""))
+    _c_nm.caption(f"{_scope} · change the Event / Tournament filter in the sidebar to narrow this down.")
+    with _c_nm.expander("📷 Add or change photo (team login)"):
+        if _team_gate("mystats"):
+            _up = st.file_uploader("Choose a photo", type=["jpg", "jpeg", "png", "webp"], key=f"pp_{_me}")
+            if st.button("Save photo", disabled=_up is None, key="pp_save"):
+                import io
+                from PIL import Image, ImageOps
+                _img = ImageOps.exif_transpose(Image.open(_up)).convert("RGB")
+                _img = ImageOps.fit(_img, (600, 600), centering=(0.5, 0.35))
+                _buf = io.BytesIO()
+                _img.save(_buf, "JPEG", quality=88)
+                PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
+                _dest = _player_photo(_me)
+                _dest.write_bytes(_buf.getvalue())
+                _github_sync(_dest, _buf.getvalue())
+                st.success("Photo saved.")
+                st.rerun()
+
+    def _kpis(items):
+        st.markdown('<div class="kpi-grid">' + "".join(
+            f'<div class="kpi-card"><div class="label">{it[0]}</div><div class="value">{it[1]}</div>'
+            + (f'<div class="hint">{it[2]}</div>' if len(it) > 2 and it[2] else "") + "</div>"
+            for it in items) + "</div>", unsafe_allow_html=True)
+
+    _r3 = lambda k: f"{_row[k]:.3f}"
+    _kpis([("Games", int(_row["G"])), ("AVG", _r3("AVG")), ("OBP", _r3("OBP")), ("SLG", _r3("SLG")), ("OPS", _r3("OPS"))])
+    _kpis([("Hits", int(_row["H"])), ("Home runs", int(_row["HR"])), ("RBI", int(_row["RBI"])),
+           ("Runs", int(_row["R"])), ("Walks", int(_row["BB"]))])
+
+    _st = player_streaks(all_games, _me, walks_as_hits)
+
+    def _sp(sk, unit):
+        cur = f"since {sk['current_since']}" if sk["current"] else "no active streak"
+        sp = sk["best_span"]
+        best = "" if not sp else (sp[0] if sp[0] == sp[1] else f"{sp[0]} – {sp[1]}")
+        return cur, best
+
+    st.markdown("##### 🔥 Hit streaks")
+    _gc, _gb = _sp(_st["games"], "games")
+    _ac, _ab = _sp(_st["abs"], "at-bats")
+    _kpis([("Current game streak", _st["games"]["current"], _gc),
+           ("Longest game streak", _st["games"]["best"], _gb),
+           ("Current at-bat streak", _st["abs"]["current"], _ac),
+           ("Longest at-bat streak", _st["abs"]["best"], _ab)])
+    st.caption("Streaks use all games, not the filter. Walks and sac flies don't count as at-bats, so they "
+               "don't break a streak. Games you missed or had no at-bats in are skipped.")
+
+    st.markdown("##### 🏅 Where you rank on the team")
+    _sf = totals["SF"] if "SF" in totals.columns else 0
+    _pa_all = totals["AB"] + totals["BB"] + _sf
+    _min_pa = 2 * len(games)
+    _qual = totals[_pa_all >= _min_pa].set_index("player")
+    _all = totals.set_index("player")
+    _sk_all = {p: player_streaks(all_games, p, walks_as_hits) for p in _all.index}
+    _streak_df = pd.DataFrame({"GSTREAK": {p: v["games"]["best"] for p, v in _sk_all.items()},
+                               "ABSTREAK": {p: v["abs"]["best"] for p, v in _sk_all.items()}})
+    _cats = [("AVG", "Batting average", True, "{:.3f}", _qual), ("OBP", "On-base %", True, "{:.3f}", _qual),
+             ("SLG", "Slugging", True, "{:.3f}", _qual), ("OPS", "OPS", True, "{:.3f}", _qual),
+             ("H", "Hits", False, "{:.0f}", _all), ("2B", "Doubles", False, "{:.0f}", _all),
+             ("3B", "Triples", False, "{:.0f}", _all), ("HR", "Home runs", False, "{:.0f}", _all),
+             ("XBH", "Extra-base hits", False, "{:.0f}", _all), ("TB", "Total bases", False, "{:.0f}", _all),
+             ("RBI", "RBI", False, "{:.0f}", _all), ("R", "Runs", False, "{:.0f}", _all),
+             ("BB", "Walks", False, "{:.0f}", _all),
+             ("GSTREAK", "Longest game hit streak", False, "{:.0f}", _streak_df),
+             ("ABSTREAK", "Longest at-bat hit streak", False, "{:.0f}", _streak_df)]
+    _rows, _chips, _leads = [], [], []
+    for _col, _lab, _is_rate, _fmt, _src in _cats:
+        _ser = _src[_col]
+        if _me not in _ser.index:
+            _rows.append({"Category": _lab, "You": "—", "Rank": f"needs {_min_pa}+ PA", "Team leader": ""})
+            continue
+        _v = _ser[_me]
+        _rank = int((_ser > _v).sum()) + 1
+        _tied = int((_ser == _v).sum()) > 1
+        _top = _ser.max()
+        _ldrs = ", ".join(_ser[_ser == _top].index[:3])
+        _rk_txt = ("T-" if _tied else "") + f"#{_rank} of {len(_ser)}"
+        _rows.append({"Category": _lab, "You": _fmt.format(_v), "Rank": _rk_txt,
+                      "Team leader": f"{_ldrs} ({_fmt.format(_top)})"})
+        if _rank <= 5 and _v > 0:
+            _medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(_rank, "")
+            _chips.append((_rank, f'<span class="badge{" green" if _rank == 1 else ""}">{_medal} {_lab} · '
+                                  f'{"T-" if _tied else ""}#{_rank}</span>'))
+        if _rank == 1 and _v > 0:
+            _leads.append(_lab)
+    if _leads:
+        st.markdown("**👑 Leads the team in:** " + ", ".join(_leads))
+    if _chips:
+        st.markdown('<div class="badges" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px">'
+                    + "".join(c for _, c in sorted(_chips, key=lambda x: x[0])) + "</div>", unsafe_allow_html=True)
+    else:
+        st.caption("No top-5 finishes yet in this selection. Keep swinging!")
+    with st.expander("See every category"):
+        st.dataframe(pd.DataFrame(_rows), hide_index=True, use_container_width=True)
+    st.caption(f"Top 5 shown. Rate stats (AVG, OBP, SLG, OPS) only rank players with {_min_pa}+ plate appearances "
+               "(2 per team game in this selection). Streak ranks use all games. Ties share a rank.")
+
+    _pp = pg[pg["player"] == _me].sort_values("game_id")
+    _sumc = [c for c in ["AB", "1B", "2B", "3B", "HR_OTF", "HR_ITP", "BB", "SF", "R", "RBI", "K"] if c in _pp.columns]
+
+    st.markdown("##### By tournament")
+    _bt = _pp.groupby("tournament_id", sort=False)[_sumc].sum()
+    _bt["G"] = _pp.groupby("tournament_id", sort=False)["game_id"].nunique()
+    _bt = add_derived(_bt.reset_index(), walks_as_hits)
+    _tname = {t["id"]: t["name"] for t in tournaments}
+    _bt.insert(0, "Tournament", _bt["tournament_id"].map(lambda t: _tname.get(t, "Regular season")))
+    _bcols = [c for c in ["Tournament", "G", "AB", "H", "HR", "BB", "R", "RBI", "AVG", "OBP", "SLG", "OPS"] if c in _bt.columns]
+    st.dataframe(_bt[_bcols].style.format({c: "{:.3f}" for c in ["AVG", "OBP", "SLG", "OPS"]}),
+                 hide_index=True, use_container_width=True)
+
+    st.markdown("##### Trend (cumulative)")
+    _cum = add_derived(_pp[_sumc].cumsum().reset_index(drop=True), walks_as_hits)
+    _cum["Game"] = range(1, len(_cum) + 1)
+    _long = _cum.melt(id_vars="Game", value_vars=["AVG", "OBP", "SLG"], var_name="Stat", value_name="Value")
+    _tr = (alt.Chart(_long).mark_line(point=True)
+           .encode(x=alt.X("Game:O", title="Game #"), y=alt.Y("Value:Q", title=None),
+                   color=alt.Color("Stat:N", scale=alt.Scale(domain=["AVG", "OBP", "SLG"],
+                                                             range=["#e8789f", "#7fb8e6", "#8ee8a8"])))
+           .properties(height=240))
+    st.altair_chart(_alt_theme(_tr, dark_mode), use_container_width=True)
+
+    st.markdown("##### Game by game")
+    _res = {g["game_id"]: (f'{g.get("result", "")} {g.get("team_runs")}–{g.get("opp_runs")}') for g in games}
+    _gl = _pp.assign(Result=_pp["game_id"].map(_res))
+    _glc = [c for c in ["date", "event", "opponent", "Result", "AB", "H", "2B", "3B", "HR", "BB", "R", "RBI"] if c in _gl.columns]
+    st.dataframe(_gl[_glc].sort_values("date", ascending=False), hide_index=True, use_container_width=True)
 
 elif page == "👥 Roster":
     st.markdown(f"## 👥 Roster — {active_team_name}")
@@ -1391,7 +1678,7 @@ elif page == "⚾ Log Game":
         if g.get("live_mode"):
             st.markdown(
                 f"<div style='padding:8px 0;font-size:16px;font-weight:700'>"
-                f"🔴 <span style='color:#FF1493'>LIVE</span>"
+                f"🔴 <span style='color:#e8789f'>LIVE</span>"
                 f" vs {g['opponent']}"
                 f"{'  ·  ' + g_tourn if g_tourn else ''}"
                 f"<span style='opacity:0.45;font-size:12px;margin-left:8px'>{g['date']}</span></div>",
@@ -1522,7 +1809,7 @@ elif page == "⚾ Log Game":
                 cur_code = st.session_state[out_key]
                 cur_name = OUTCOME_DISPLAY.get(cur_code, "") if cur_code else ""
                 status_html = (
-                    f"<span style='background:rgba(255,20,147,0.18);color:#ff69b4;"
+                    f"<span style='background:rgba(232,120,159,0.18);color:#f0a0bc;"
                     f"padding:3px 10px;border-radius:99px;font-size:13px;font-weight:700'>"
                     f"{cur_name}</span>" if cur_code else
                     "<span style='opacity:0.45;font-size:13px'>— select below —</span>"
@@ -1530,7 +1817,7 @@ elif page == "⚾ Log Game":
                 st.markdown(
                     f"<div style='margin-bottom:14px'>"
                     f"<div style='font-size:20px;font-weight:800;margin-bottom:4px'>"
-                    f"<span style='color:#FF1493'>{sel_player}</span>"
+                    f"<span style='color:#e8789f'>{sel_player}</span>"
                     f"&nbsp;<span style='opacity:0.4;font-size:14px'>Inn {sel_inning} · {pa_label}</span></div>"
                     f"{status_html}</div>",
                     unsafe_allow_html=True,
@@ -1898,9 +2185,9 @@ elif page == "⚾ Log Game":
 
             # ── Box score HTML table ───────────────────────────────────────────────
             _td  = "border-right:1px solid rgba(255,255,255,0.10);padding:5px 4px;text-align:center;"
-            _td_cur = ("border-right:1px solid rgba(255,20,147,0.45);"
-                       "border-left:1px solid rgba(255,20,147,0.45);"
-                       "background:rgba(255,20,147,0.13);padding:5px 4px;text-align:center;")
+            _td_cur = ("border-right:1px solid rgba(232,120,159,0.45);"
+                       "border-left:1px solid rgba(232,120,159,0.45);"
+                       "background:rgba(232,120,159,0.13);padding:5px 4px;text-align:center;")
             _td_rhe = "padding:5px 6px;text-align:center;border-left:1px solid rgba(255,255,255,0.14);"
             _row_sep = "border-top:1px solid rgba(255,255,255,0.08);"
 
@@ -1909,7 +2196,7 @@ elif page == "⚾ Log Game":
             for _inn in _all_inn:
                 if _inn == cur_inn:
                     _hdr_inn += (f"<th style='{_td_cur}font-size:15px;font-weight:800;"
-                                 f"color:#FF1493;letter-spacing:0.5px'>{_inn}</th>")
+                                 f"color:#e8789f;letter-spacing:0.5px'>{_inn}</th>")
                 else:
                     _hdr_inn += (f"<th style='{_td}font-size:11px;font-weight:600;"
                                  f"opacity:0.45'>{_inn}</th>")
@@ -1927,13 +2214,13 @@ elif page == "⚾ Log Game":
             for _inn in _all_inn:
                 _v  = _inn_r[_inn]
                 _st = _td_cur if _inn == cur_inn else _td
-                _cl = "color:#FF1493;" if _v else ""
+                _cl = "color:#e8789f;" if _v else ""
                 _our_inn += f"<td style='{_st}font-weight:700;{_cl}'>{_v}</td>"
             _our_row = (f"<tr style='{_row_sep}'>"
                         f"<td style='text-align:left;padding:5px 8px;font-size:13px;"
-                        f"font-weight:700;color:#FF1493'>{active_team_name}</td>"
+                        f"font-weight:700;color:#e8789f'>{active_team_name}</td>"
                         f"{_our_inn}"
-                        f"<td style='{_td_rhe}font-weight:700;color:#FF1493'>{_total_r}</td>"
+                        f"<td style='{_td_rhe}font-weight:700;color:#e8789f'>{_total_r}</td>"
                         f"<td style='{_td_rhe}font-weight:700'>{_total_h}</td>"
                         f"<td style='{_td_rhe}font-weight:700'>{_total_e}</td>"
                         f"</tr>")
@@ -1949,7 +2236,7 @@ elif page == "⚾ Log Game":
                     _opp_inn_total += _stored
                 elif _inn == cur_inn:
                     _opp_inn_cells += (f"<td style='{_st}font-weight:700;"
-                                       f"color:#FF1493'>{_stored if _stored else '—'}</td>")
+                                       f"color:#e8789f'>{_stored if _stored else '—'}</td>")
                     _opp_inn_total += _stored
                 else:
                     _opp_inn_cells += f"<td style='{_st}opacity:0.3'>-</td>"
@@ -2000,7 +2287,7 @@ elif page == "⚾ Log Game":
                 g["result"] = "T"
 
             st.markdown(
-                "<hr style='margin:6px 0 10px;border-color:rgba(255,20,147,0.15)'>",
+                "<hr style='margin:6px 0 10px;border-color:rgba(232,120,159,0.15)'>",
                 unsafe_allow_html=True)
 
             # ── Inning situation summary ───────────────────────────────────────────
@@ -2103,7 +2390,7 @@ elif page == "⚾ Log Game":
                 f"<span style='font-size:11px;opacity:0.5;margin-left:5px'>{_out_lbl}</span>"
                 f"</div>"
                 f"<div style='flex:1'>{_runner_chips}</div>"
-                f"<div><span style='font-size:20px;font-weight:800;color:#FF1493'>"
+                f"<div><span style='font-size:20px;font-weight:800;color:#e8789f'>"
                 f"{_cur_inn_runs}</span>"
                 f"<span style='font-size:11px;opacity:0.45'> R this inning</span></div>"
                 f"</div>",
@@ -2145,10 +2432,10 @@ elif page == "⚾ Log Game":
 
             st.markdown(
                 "<div style='text-align:right;font-size:11px;opacity:0.4;margin:2px 0 4px'>"
-                "<span style='color:#FF1493'>●</span> = leads off this inning</div>",
+                "<span style='color:#e8789f'>●</span> = leads off this inning</div>",
                 unsafe_allow_html=True,
             )
-            st.markdown("<hr style='margin:2px 0 10px;border-color:rgba(255,20,147,0.2)'>",
+            st.markdown("<hr style='margin:2px 0 10px;border-color:rgba(232,120,159,0.2)'>",
                         unsafe_allow_html=True)
 
             # ── Previous inning recap strip ────────────────────────────────────────
@@ -2289,7 +2576,7 @@ elif page == "⚾ Log Game":
                 name_color  = ("#4CAF50" if has_scored
                                else "rgba(255,255,255,0.42)" if on_bench else "inherit")
                 ord_lbl     = str(order_map.get(player, "")) if not on_bench else "·"
-                dot         = (" <span style='color:#FF1493;font-size:10px;vertical-align:middle'>●</span>"
+                dot         = (" <span style='color:#e8789f;font-size:10px;vertical-align:middle'>●</span>"
                                if player == leadoff_this_inn else "")
                 subbed_in   = {sub["in"] for sub in g["substitutions"]}
                 italic_style = "font-style:italic;" if player in subbed_in else ""
@@ -2450,8 +2737,8 @@ elif page == "⚾ Log Game":
                 _cur_active, _cur_bench = _active_bench_at(
                     g["lineup"], g.get("bench_players", []), g["substitutions"]
                 )
-                out_opts = sorted(_cur_active) if _cur_active else player_names
-                in_opts  = sorted(_cur_bench)  if _cur_bench  else player_names
+                out_opts = sorted(_cur_active or player_names, key=str.lower)
+                in_opts  = sorted(_cur_bench or player_names, key=str.lower)
                 with st.form("add_sub"):
                     cs1, cs2, cs3 = st.columns(3)
                     out_p   = cs1.selectbox("Out", out_opts)
@@ -2593,6 +2880,46 @@ elif page == "📋 History":
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: SETTINGS
 # ═══════════════════════════════════════════════════════════════════════════════
+
+elif page == "📸 Photos":
+    st.markdown("## 📸 Photos")
+    PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+    _captions = _load(CAPTIONS_FILE, {})
+    _exts = {".jpg", ".jpeg", ".png", ".webp"}
+    _pics = sorted((p for p in PHOTOS_DIR.iterdir() if p.suffix.lower() in _exts),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+
+    with st.expander("➕ Add photos (team login)"):
+        if _team_gate("photos"):
+            _ups = st.file_uploader("Choose one or more photos", type=["jpg", "jpeg", "png", "webp"],
+                                    accept_multiple_files=True)
+            _cap = st.text_input("Caption (optional, applied to every photo in this upload)")
+            if st.button("Save photos", disabled=not _ups):
+                import io, re, time
+                from PIL import Image
+                for up in _ups:
+                    img = Image.open(up).convert("RGB")
+                    img.thumbnail((1600, 1600))
+                    buf = io.BytesIO()
+                    img.save(buf, "JPEG", quality=85)
+                    stem = re.sub(r"[^a-z0-9]+", "-", Path(up.name).stem.lower()).strip("-") or "photo"
+                    dest = PHOTOS_DIR / f"{stem}-{int(time.time())}.jpg"
+                    dest.write_bytes(buf.getvalue())
+                    _github_sync(dest, buf.getvalue())
+                    if _cap:
+                        _captions[dest.name] = _cap
+                if _cap:
+                    _save(CAPTIONS_FILE, _captions)
+                st.success(f"Saved {len(_ups)} photo(s).")
+                st.rerun()
+
+    if not _pics:
+        st.info("No photos yet. Use **Add photos** above.")
+    else:
+        _cols = st.columns(3)
+        for i, p in enumerate(_pics):
+            with _cols[i % 3]:
+                st.image(str(p), caption=_captions.get(p.name, ""), use_container_width=True)
 
 elif page == "⚙️ Settings":
     st.markdown("## ⚙️ Settings")
