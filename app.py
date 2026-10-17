@@ -596,7 +596,8 @@ def build_per_game_df(games: list[dict], walks_as_hits: bool) -> pd.DataFrame:
             s.update({"player": player, "game_id": g["game_id"],
                       "date": g["date"], "opponent": g["opponent"],
                       "type": g.get("type", "regular"),
-                      "tournament_id": g.get("tournament_id", "")})
+                      "tournament_id": g.get("tournament_id", ""),
+                      "event": _tid_event.get(g.get("tournament_id"), "")})
             rows.append(s)
     if not rows:
         return pd.DataFrame()
@@ -716,6 +717,19 @@ player_names     = [p["name"] for p in roster_data.get("players", [])]
 active_team_name = next((t["name"] for t in config.get("teams", []) if t["id"] == active_team_id), "Reapers")
 tournaments      = games_data.get("tournaments", [])
 
+def _event_for(t: dict) -> str:
+    """Short event category for a tournament (Koala, UTRIP (USSSA), Alby's, Pipo and Martha)."""
+    if t.get("event"):
+        return t["event"]
+    n = t.get("name", "").lower()
+    for key, label in (("koala", "Koala"), ("usssa", "UTRIP (USSSA)"), ("utrip", "UTRIP (USSSA)"),
+                       ("alby", "Alby's"), ("pipo", "Pipo and Martha")):
+        if key in n:
+            return label
+    return t.get("name", "—")
+
+_tid_event = {t["id"]: _event_for(t) for t in tournaments}
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
@@ -735,11 +749,15 @@ with st.sidebar:
     st.markdown(f"## 💀 {active_team_name}")
 
     if tournaments:
-        tourn_opts = ["All Tournaments"] + [t["name"] for t in tournaments]
+        _events = list(dict.fromkeys(_tid_event[t["id"]] for t in tournaments))
+        sel_event = st.selectbox("🏷️ Event", ["All Events"] + _events)
+        active_event = None if sel_event == "All Events" else sel_event
+        _t_pool = [t for t in tournaments if active_event is None or _tid_event[t["id"]] == active_event]
+        tourn_opts = ["All Tournaments"] + [t["name"] for t in _t_pool]
         cur_tourn = st.session_state.active_tournament_id
         tourn_idx = 0
         if cur_tourn:
-            for i, t in enumerate(tournaments):
+            for i, t in enumerate(_t_pool):
                 if t["id"] == cur_tourn:
                     tourn_idx = i + 1
                     break
@@ -748,8 +766,10 @@ with st.sidebar:
             st.session_state.active_tournament_id = None
         else:
             st.session_state.active_tournament_id = next(
-                t["id"] for t in tournaments if t["name"] == sel_tourn
+                t["id"] for t in _t_pool if t["name"] == sel_tourn
             )
+    else:
+        active_event = None
 
     active_tournament_id = st.session_state.active_tournament_id
 
@@ -779,6 +799,8 @@ if not st.session_state.get("dark_mode", True):
 all_games = sorted(games_data.get("games", []), key=lambda g: g["game_id"])
 if active_tournament_id:
     games = [g for g in all_games if g.get("tournament_id") == active_tournament_id]
+elif active_event:
+    games = [g for g in all_games if _tid_event.get(g.get("tournament_id")) == active_event]
 else:
     games = all_games
 
@@ -801,6 +823,8 @@ if page == "📊 Dashboard":
     if active_tournament_id and tournaments:
         tn = next((t for t in tournaments if t["id"] == active_tournament_id), None)
         tourn_label = tn["name"] if tn else "All Tournaments"
+    elif active_event:
+        tourn_label = active_event
     elif not tournaments:
         tourn_label = str(date.today().year)
 
@@ -1059,6 +1083,8 @@ if page == "📊 Dashboard":
             "Result": g.get("result") or "Live",
             "Score": (f'{g["team_runs"]}-{g["opp_runs"]}' if g.get("result") else "In progress"),
             "Type": g.get("type", "regular").title(),
+            "Event": _tid_event.get(g.get("tournament_id"), "—"),
+            "Stage": g.get("stage", "—"),
             "Tournament": next((t["name"] for t in tournaments if t["id"] == g.get("tournament_id")), "—"),
         } for g in games])
         st.dataframe(glog, hide_index=True, use_container_width=True)
@@ -1067,7 +1093,7 @@ if page == "📊 Dashboard":
             st.markdown("##### Per-player game log")
             sel = st.selectbox("Player", sorted(pg["player"].unique()))
             pdf = pg[pg["player"] == sel].sort_values("game_id")
-            cols = ["date", "opponent", "AB", "H", "1B", "2B", "3B", "HR", "HR_OTF", "HR_ITP"]
+            cols = ["date", "event", "opponent", "AB", "H", "1B", "2B", "3B", "HR", "HR_OTF", "HR_ITP"]
             if not walks_as_hits:
                 cols.append("BB")
             cols += ["R", "RBI", "K", "AVG", "SLG", "OPS"]
@@ -2513,8 +2539,8 @@ elif page == "📋 History":
     else:
         for g in reversed(games):
             rw = {"W": "Won", "L": "Lost", "T": "Tied"}.get(g.get("result"), "🔴 Live")
-            g_tourn = next((t["name"] for t in tournaments if t["id"] == g.get("tournament_id", "")), "")
-            tourn_tag = f"  [{g_tourn}]" if g_tourn else ""
+            g_tourn = _tid_event.get(g.get("tournament_id", ""), "")
+            tourn_tag = f"  [{g_tourn}{' · ' + g['stage'] if g.get('stage') else ''}]" if g_tourn else ""
             score_part = (f"{g.get('team_runs','?')}-{g.get('opp_runs','?')}"
                           if g.get("result") else "In progress")
             label = f'{g["date"]}  ·  {rw} {score_part}  vs  {g["opponent"]}  [{g.get("type","regular").title()}]{tourn_tag}'

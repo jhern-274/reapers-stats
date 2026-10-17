@@ -20,7 +20,7 @@
       ]
     },
     {
-      "name": "Gabby",
+      "name": "Gabby SS",
       "positions": [
         "SS"
       ]
@@ -38,7 +38,7 @@
       ]
     },
     {
-      "name": "Robert",
+      "name": "Rob Cruz",
       "positions": []
     },
     {
@@ -78,10 +78,44 @@
       "name": "Roberto"
     },
     {
-      "name": "Juany"
+      "name": "Juany",
+      "positions": [
+        "LCF"
+      ]
     },
     {
       "name": "Brayan"
+    },
+    {
+      "name": "Brandon",
+      "positions": [
+        "LCF",
+        "RCF"
+      ]
+    },
+    {
+      "name": "Pepito",
+      "positions": [
+        "LCF"
+      ]
+    },
+    {
+      "name": "Frank",
+      "positions": [
+        "1B"
+      ]
+    },
+    {
+      "name": "Ethan",
+      "positions": [
+        "2B"
+      ]
+    },
+    {
+      "name": "Kevin Dykes",
+      "positions": [
+        "3B"
+      ]
     }
   ]
 }
