@@ -560,6 +560,22 @@ def _player_card_html(name: str, positions: str, team: str, scope: str, row, str
         f'</div></label><div class="pcard-hint">Tap the card to flip it</div></div>'
     )
 
+@st.cache_data(show_spinner=False, max_entries=4)
+def _upload_src(file_id: str, _data: bytes):
+    """An uploaded photo, upright and shrunk to at most 1600 px, kept while the crop sliders move."""
+    import io
+    from PIL import Image, ImageOps
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(_data))).convert("RGB")
+    img.thumbnail((1600, 1600))
+    return img
+
+def _square_crop(img, zoom: float, x_pct: float, y_pct: float):
+    """Square crop of img. zoom 1 = the largest square that fits; x/y_pct place it (0 = left/top, 100 = right/bottom)."""
+    w, h = img.size
+    side = min(w, h) / zoom
+    left, top = (w - side) * x_pct / 100, (h - side) * y_pct / 100
+    return img.crop((round(left), round(top), round(left + side), round(top + side)))
+
 def _logo_uri() -> str:
     return _img_uri(LOGO_FILE, 520) if LOGO_FILE.exists() else ""
 
@@ -1601,11 +1617,33 @@ elif page == "🧢 My Stats":
     with _c_nm.expander("📷 Add or change photo (team login)"):
         if _team_gate("mystats"):
             _up = st.file_uploader("Choose a photo", type=["jpg", "jpeg", "png", "webp"], key=f"pp_{_me}")
-            if st.button("Save photo", disabled=_up is None, key="pp_save"):
+            _crop = None
+            if _up is not None:
+                import base64, io
+                from PIL import Image
+                _src = _upload_src(_up.file_id, _up.getvalue())
+                _w, _h = _src.size
+                st.caption("Crop it: zoom in, then slide to frame yourself. The preview shows the round photo and the card.")
+                _ck = f"{_me}_{_up.file_id}"  # new upload → sliders start fresh
+                _z = st.slider("🔍 Zoom", 1.0, 4.0, 1.0, 0.05, key=f"crop_z_{_ck}")
+                _x = st.slider("↔ Left / right", 0, 100, 50, disabled=_w <= _h and _z == 1.0, key=f"crop_x_{_ck}")
+                _y = st.slider("↕ Up / down", 0, 100, 35 if _h > _w else 50,
+                               disabled=_h <= _w and _z == 1.0, key=f"crop_y_{_ck}")
+                _crop = _square_crop(_src, _z, _x, _y).resize((600, 600), Image.LANCZOS)
+                _pb = io.BytesIO()
+                _crop.resize((300, 300), Image.LANCZOS).save(_pb, "JPEG", quality=85)
+                _pu = "data:image/jpeg;base64," + base64.b64encode(_pb.getvalue()).decode()
+                st.markdown(
+                    '<div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin:4px 0 10px">'
+                    f'<div style="text-align:center"><img class="avatar" src="{_pu}" style="width:120px;height:120px">'
+                    '<div style="font-size:11px;opacity:0.6;margin-top:4px">Round photo</div></div>'
+                    f'<div style="text-align:center"><div style="width:120px;height:139px;border-radius:10px;'
+                    f'border:3px solid #e8789f;background:#272d3d url({_pu}) center 30% / cover no-repeat"></div>'
+                    '<div style="font-size:11px;opacity:0.6;margin-top:4px">Player card</div></div></div>',
+                    unsafe_allow_html=True)
+            if st.button("Save photo", disabled=_crop is None, key="pp_save"):
                 import io
-                from PIL import Image, ImageOps
-                _img = ImageOps.exif_transpose(Image.open(_up)).convert("RGB")
-                _img = ImageOps.fit(_img, (600, 600), centering=(0.5, 0.35))
+                _img = _crop
                 _buf = io.BytesIO()
                 _img.save(_buf, "JPEG", quality=88)
                 PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
