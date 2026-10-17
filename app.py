@@ -177,6 +177,48 @@ CSS = """
   border: 3px solid rgba(232,120,159,0.55); }
 .avatar.ph { display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 800;
   background: rgba(232,120,159,0.15); color: #f0a0bc; }
+/* Player card: two-sided, tap/click to flip. A hidden checkbox holds the flipped state (no JS needed). */
+.pcard-wrap { display: flex; flex-direction: column; align-items: center; margin: 6px 0 18px; }
+.pcard-toggle { position: absolute; opacity: 0; pointer-events: none; }
+.pcard { width: 300px; max-width: 100%; aspect-ratio: 5 / 7; perspective: 1200px; cursor: pointer;
+  display: block; -webkit-tap-highlight-color: transparent; }
+.pcard-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s cubic-bezier(.2,.7,.2,1);
+  transform-style: preserve-3d; }
+.pcard-toggle:checked + .pcard .pcard-inner { transform: rotateY(180deg); }
+.pcard-toggle:focus-visible + .pcard .pcard-inner { outline: 2px solid #e8789f; outline-offset: 4px; border-radius: 18px; }
+.pcard-face { position: absolute; inset: 0; border-radius: 18px; overflow: hidden; color: #f3f0f6;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  background: linear-gradient(160deg, #3a2747 0%, #1e2330 55%, #2b1d2f 100%);
+  border: 3px solid #e8789f; box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 0 5px rgba(255,255,255,0.06); }
+.pcard-front .photo { position: absolute; inset: 10px 10px 92px 10px; border-radius: 12px;
+  background: #272d3d center 30% / cover no-repeat; border: 1px solid rgba(255,255,255,0.12); }
+.pcard-front .photo.ph { display: flex; align-items: center; justify-content: center;
+  font-size: 92px; font-weight: 800; color: #f0a0bc; background: rgba(232,120,159,0.12); }
+.pcard-front .logo { position: absolute; top: 18px; right: 18px; height: 34px; max-width: 90px; object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+.pcard-front .plate { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 74px; border-radius: 12px;
+  background: linear-gradient(90deg, #e8789f, #b45f9a); color: #fff; padding: 9px 14px; box-sizing: border-box; }
+.pcard-front .name { font-size: 24px; font-weight: 800; line-height: 1.1; letter-spacing: -0.3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard-front .meta { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  opacity: 0.92; margin-top: 5px; }
+.pcard-back { transform: rotateY(180deg); padding: 16px 16px 12px; box-sizing: border-box;
+  display: flex; flex-direction: column; }
+.pcard-back .hd { display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 2px solid #e8789f; padding-bottom: 6px; }
+.pcard-back .hd .name { font-size: 19px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard-back .hd .pos { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #f0a0bc; margin-left: 8px; }
+.pcard-back .scope { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.6; margin: 5px 0 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard-back .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pcard-back .cell { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+  padding: 5px 4px; text-align: center; }
+.pcard-back .cell .k { font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; opacity: 0.6; text-transform: uppercase; }
+.pcard-back .cell .v { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.pcard-back .cell.hi .v { color: #f0a0bc; }
+.pcard-back .foot { margin-top: auto; font-size: 11px; line-height: 1.45; }
+.pcard-back .foot b { color: #f0a0bc; }
+.pcard-hint { font-size: 12px; opacity: 0.55; margin-top: 8px; }
 .recent { margin: 4px 0 8px; }
 .recent .title { font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
 .recent-row { display: grid; grid-template-columns: 26px 1fr 64px 92px; gap: 8px; padding: 7px 4px;
@@ -463,6 +505,40 @@ def _avatar_html(name: str) -> str:
         return f'<img class="avatar" src="{_img_uri(p, 300)}" alt="{name}">'
     initials = "".join(w[0] for w in name.split()[:2]).upper()
     return f'<div class="avatar ph">{initials}</div>'
+
+def _player_card_html(name: str, positions: str, team: str, scope: str, row, streaks: dict, leads: list) -> str:
+    """Two-sided player card: photo on the front, stats on the back. Tapping the card flips it."""
+    from html import escape
+    nm, pos = escape(name), escape(positions)
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "player"
+    photo = _player_photo(name)
+    if photo.exists():
+        pic = f'<div class="photo" style="background-image:url({_img_uri(photo, 600)})"></div>'
+    else:
+        pic = f'<div class="photo ph">{escape("".join(w[0] for w in name.split()[:2]).upper())}</div>'
+    logo = f'<img class="logo" src="{_img_uri(LOGO_FILE, 200)}" alt="">' if LOGO_FILE.exists() else ""
+    meta = " · ".join(x for x in (pos, escape(team)) if x)
+    cells = [("AVG", f'{row["AVG"]:.3f}', True), ("OBP", f'{row["OBP"]:.3f}', True), ("OPS", f'{row["OPS"]:.3f}', True),
+             ("G", int(row["G"]), False), ("AB", int(row["AB"]), False), ("H", int(row["H"]), False),
+             ("HR", int(row["HR"]), False), ("RBI", int(row["RBI"]), False), ("R", int(row["R"]), False),
+             ("2B", int(row["2B"]), False), ("3B", int(row["3B"]), False), ("BB", int(row["BB"]), False)]
+    grid = "".join(f'<div class="cell{" hi" if hi else ""}"><div class="k">{k}</div><div class="v">{v}</div></div>'
+                   for k, v, hi in cells)
+    foot = (f'<div>🔥 Best hit streak: <b>{streaks["games"]["best"]}</b> games · '
+            f'<b>{streaks["abs"]["best"]}</b> at-bats</div>')
+    if leads:
+        foot += f'<div>👑 Team leader: <b>{escape(", ".join(leads))}</b></div>'
+    return (
+        f'<div class="pcard-wrap"><input type="checkbox" id="pcard-{slug}" class="pcard-toggle">'
+        f'<label class="pcard" for="pcard-{slug}" title="Tap to flip"><div class="pcard-inner">'
+        f'<div class="pcard-face pcard-front">{pic}{logo}'
+        f'<div class="plate"><div class="name">{nm}</div><div class="meta">{meta}</div></div></div>'
+        f'<div class="pcard-face pcard-back">'
+        f'<div class="hd"><span class="name">{nm}</span><span class="pos">{pos}</span></div>'
+        f'<div class="scope">{escape(scope)}</div><div class="grid">{grid}</div>'
+        f'<div class="foot">{foot}</div></div>'
+        f'</div></label><div class="pcard-hint">Tap the card to flip it</div></div>'
+    )
 
 def _logo_uri() -> str:
     return _img_uri(LOGO_FILE, 520) if LOGO_FILE.exists() else ""
@@ -1432,6 +1508,24 @@ elif page == "🧢 My Stats":
     _c_av.markdown(_avatar_html(_me), unsafe_allow_html=True)
     _c_nm.markdown(f"### {_me}" + (f" · {_pos}" if _pos else ""))
     _c_nm.caption(f"{_scope} · change the Event / Tournament filter in the sidebar to narrow this down.")
+    _me_entry = next((p for p in roster_data.get("players", []) if p["name"] == _me), None)
+    with _c_nm.expander("#️⃣ Jersey number (team login)"):
+        if _me_entry is None:
+            st.caption(f"{_me} isn't on the roster, so there's nowhere to save a number.")
+        elif _team_gate("mynum"):
+            _num = st.text_input("Number", value=_me_entry.get("number", ""), max_chars=2, key=f"num_{_me}",
+                                 help="0–99. 0 and 00 are different numbers. Leave blank to clear it.").strip()
+            if st.button("Save number", key="num_save"):
+                if _num and not _num.isdigit():
+                    st.error("Use digits only, like 7 or 00.")
+                else:
+                    if _num:
+                        _me_entry["number"] = _num
+                    else:
+                        _me_entry.pop("number", None)
+                    save_roster(roster_data, active_team_id)
+                    st.success("Number saved." if _num else "Number cleared.")
+                    st.rerun()
     with _c_nm.expander("📷 Add or change photo (team login)"):
         if _team_gate("mystats"):
             _up = st.file_uploader("Choose a photo", type=["jpg", "jpeg", "png", "webp"], key=f"pp_{_me}")
@@ -1454,6 +1548,9 @@ elif page == "🧢 My Stats":
             f'<div class="kpi-card"><div class="label">{it[0]}</div><div class="value">{it[1]}</div>'
             + (f'<div class="hint">{it[2]}</div>' if len(it) > 2 and it[2] else "") + "</div>"
             for it in items) + "</div>", unsafe_allow_html=True)
+
+    st.markdown("##### 🃏 Player card")
+    _card_slot = st.container()  # filled in once team-leader categories are known (below)
 
     _r3 = lambda k: f"{_row[k]:.3f}"
     _kpis([("Games", int(_row["G"])), ("AVG", _r3("AVG")), ("OBP", _r3("OBP")), ("SLG", _r3("SLG")), ("OPS", _r3("OPS"))])
@@ -1517,6 +1614,8 @@ elif page == "🧢 My Stats":
                                   f'{"T-" if _tied else ""}#{_rank}</span>'))
         if _rank == 1 and _v > 0:
             _leads.append(_lab)
+    _card_slot.markdown(_player_card_html(_me, _pos, active_team_name, _scope, _row, _st, _leads),
+                        unsafe_allow_html=True)
     if _leads:
         st.markdown("**👑 Leads the team in:** " + ", ".join(_leads))
     if _chips:
