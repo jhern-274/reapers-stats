@@ -1,5 +1,6 @@
 
 import json
+import math
 import re
 from datetime import date
 from pathlib import Path
@@ -152,6 +153,8 @@ CSS = """
 .kpi-card .label { font-size: 11px; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
 .kpi-card .value { font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 800; margin-top: 4px; line-height: 1.1; }
 .kpi-card .hint  { font-size: 11px; opacity: 0.55; margin-top: 4px; }
+.kpi-card .value.win  { color: #8ee8a8; }
+.kpi-card .value.loss { color: #ff8a8a; }
 
 .leader-card {
   border: 1px solid rgba(255,255,255,0.09); border-radius: 12px;
@@ -202,21 +205,24 @@ CSS = """
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcard-front .meta { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
   opacity: 0.92; margin-top: 5px; }
-.pcard-back { transform: rotateY(180deg); padding: 16px 16px 12px; box-sizing: border-box;
+.pcard-back { transform: rotateY(180deg); padding: 14px 14px 10px; box-sizing: border-box;
   display: flex; flex-direction: column; }
+.pcard-back > * { flex-shrink: 0; }
 .pcard-back .hd { display: flex; justify-content: space-between; align-items: baseline;
   border-bottom: 2px solid #e8789f; padding-bottom: 6px; }
 .pcard-back .hd .name { font-size: 19px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcard-back .hd .pos { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #f0a0bc; margin-left: 8px; }
-.pcard-back .scope { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.6; margin: 5px 0 8px;
+.pcard-back .scope { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.6; margin: 5px 0 7px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pcard-back .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pcard-back .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
 .pcard-back .cell { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
-  padding: 5px 4px; text-align: center; }
+  padding: 3px 3px 4px; text-align: center; }
 .pcard-back .cell .k { font-size: 9.5px; font-weight: 700; letter-spacing: 0.8px; opacity: 0.6; text-transform: uppercase; }
-.pcard-back .cell .v { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.pcard-back .cell .v { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; }
 .pcard-back .cell.hi .v { color: #f0a0bc; }
-.pcard-back .foot { margin-top: auto; font-size: 11px; line-height: 1.45; }
+.pcard-back .cell .r { font-size: 9px; font-weight: 600; opacity: 0.7; white-space: nowrap; }
+.pcard-back .cell .r.top { color: #f0a0bc; opacity: 1; }
+.pcard-back .foot { margin-top: auto; padding-top: 6px; font-size: 10.5px; line-height: 1.4; }
 .pcard-back .foot b { color: #f0a0bc; }
 .pcard-hint { font-size: 12px; opacity: 0.55; margin-top: 8px; }
 .recent { margin: 4px 0 8px; }
@@ -382,6 +388,8 @@ LIGHT_CSS = """
 .kpi-card { background:#ffffff!important; color:#1a1a1a!important; border-color:rgba(255,20,147,0.18)!important }
 .kpi-card .label { color:rgba(0,0,0,0.50)!important }
 .kpi-card .hint  { color:rgba(0,0,0,0.38)!important }
+.kpi-card .value.win  { color:#1a7a3a!important }
+.kpi-card .value.loss { color:#a02020!important }
 .leader-card { background:#ffffff!important; color:#1a1a1a!important }
 .leader-row .val { color:#1a1a1a!important }
 .cmp-val { color:rgba(0,0,0,0.45)!important }
@@ -506,8 +514,10 @@ def _avatar_html(name: str) -> str:
     initials = "".join(w[0] for w in name.split()[:2]).upper()
     return f'<div class="avatar ph">{initials}</div>'
 
-def _player_card_html(name: str, positions: str, team: str, scope: str, row, streaks: dict, leads: list) -> str:
-    """Two-sided player card: photo on the front, stats on the back. Tapping the card flips it."""
+def _player_card_html(name: str, positions: str, team: str, scope: str, row, streaks: dict, leads: list,
+                      ranks: dict, qual_note: str) -> str:
+    """Two-sided player card: photo on the front, stats on the back. Tapping the card flips it.
+    `ranks` maps a stat to its label (e.g. "2nd of 11"); it's empty when the player doesn't qualify."""
     from html import escape
     nm, pos = escape(name), escape(positions)
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "player"
@@ -522,12 +532,22 @@ def _player_card_html(name: str, positions: str, team: str, scope: str, row, str
              ("G", int(row["G"]), False), ("AB", int(row["AB"]), False), ("H", int(row["H"]), False),
              ("HR", int(row["HR"]), False), ("RBI", int(row["RBI"]), False), ("R", int(row["R"]), False),
              ("2B", int(row["2B"]), False), ("3B", int(row["3B"]), False), ("BB", int(row["BB"]), False)]
-    grid = "".join(f'<div class="cell{" hi" if hi else ""}"><div class="k">{k}</div><div class="v">{v}</div></div>'
+
+    def _rk(k):
+        lab = ranks.get(k)
+        if not lab:
+            return ""
+        top = lab.split(" of ")[0].lstrip("T-") == "1st"
+        return f'<div class="r{" top" if top else ""}">{lab}</div>'
+
+    grid = "".join(f'<div class="cell{" hi" if hi else ""}"><div class="k">{k}</div><div class="v">{v}</div>{_rk(k)}</div>'
                    for k, v, hi in cells)
     foot = (f'<div>🔥 Best hit streak: <b>{streaks["games"]["best"]}</b> games · '
             f'<b>{streaks["abs"]["best"]}</b> at-bats</div>')
     if leads:
-        foot += f'<div>👑 Team leader: <b>{escape(", ".join(leads))}</b></div>'
+        more = f" +{len(leads) - 3} more" if len(leads) > 3 else ""
+        foot += f'<div>👑 Team leader: <b>{escape(", ".join(leads[:3]))}</b>{more}</div>'
+    foot += f'<div style="opacity:0.6">{escape(qual_note)}</div>'
     return (
         f'<div class="pcard-wrap"><input type="checkbox" id="pcard-{slug}" class="pcard-toggle">'
         f'<label class="pcard" for="pcard-{slug}" title="Tap to flip"><div class="pcard-inner">'
@@ -539,6 +559,22 @@ def _player_card_html(name: str, positions: str, team: str, scope: str, row, str
         f'<div class="foot">{foot}</div></div>'
         f'</div></label><div class="pcard-hint">Tap the card to flip it</div></div>'
     )
+
+@st.cache_data(show_spinner=False, max_entries=4)
+def _upload_src(file_id: str, _data: bytes):
+    """An uploaded photo, upright and shrunk to at most 1600 px, kept while the crop sliders move."""
+    import io
+    from PIL import Image, ImageOps
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(_data))).convert("RGB")
+    img.thumbnail((1600, 1600))
+    return img
+
+def _square_crop(img, zoom: float, x_pct: float, y_pct: float):
+    """Square crop of img. zoom 1 = the largest square that fits; x/y_pct place it (0 = left/top, 100 = right/bottom)."""
+    w, h = img.size
+    side = min(w, h) / zoom
+    left, top = (w - side) * x_pct / 100, (h - side) * y_pct / 100
+    return img.crop((round(left), round(top), round(left + side), round(top + side)))
 
 def _logo_uri() -> str:
     return _img_uri(LOGO_FILE, 520) if LOGO_FILE.exists() else ""
@@ -672,6 +708,39 @@ def player_streaks(all_games: list[dict], player: str, walks_as_hits: bool) -> d
                 "total": len(seq)}
 
     return {"games": scan(games_seq), "abs": scan(abs_seq)}
+
+
+def team_streaks(games: list[dict]) -> dict:
+    """Win/loss streaks over finished games in date order. A tie ends both kinds of streak;
+    games without a result yet are skipped. Spans are (first date, last date)."""
+    seq = [g for g in sorted(games, key=lambda g: (g.get("date", ""), g["game_id"]))
+           if g.get("result") in ("W", "L", "T")]
+    best = {"W": (0, None), "L": (0, None)}
+    res, run, start = None, 0, 0
+    for i, g in enumerate(seq):
+        if g["result"] == res:
+            run += 1
+        else:
+            res, run, start = g["result"], 1, i
+        if res in best and run > best[res][0]:
+            best[res] = (run, (seq[start]["date"], g["date"]))
+    return {"current": (res, run, seq[start]["date"] if seq else None), "W": best["W"], "L": best["L"]}
+
+
+QUAL_AB_PER_GAME = 1.5  # at-bats per team game needed to be ranked
+
+def qual_min_ab(n_games: int) -> int:
+    """At-bats a player needs to be ranked, scaled to the games in the current selection."""
+    return math.ceil(QUAL_AB_PER_GAME * n_games)
+
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+def rank_label(series: pd.Series, who: str) -> str:
+    """e.g. "2nd of 11" or "T-3rd of 11": higher is better, ties share a rank."""
+    v = series[who]
+    tied = int((series == v).sum()) > 1
+    return f'{"T-" if tied else ""}{_ordinal(int((series > v).sum()) + 1)} of {len(series)}'
 
 
 def pas_to_stat_row(pas: list[dict], walks_as_hits: bool) -> dict:
@@ -1160,6 +1229,25 @@ if page == "📊 Dashboard":
             unsafe_allow_html=True,
         )
 
+    _ts = team_streaks(games)
+    if _ts["current"][0]:
+        def _span(sp):
+            return "" if not sp else (sp[0] if sp[0] == sp[1] else f"{sp[0]} – {sp[1]}")
+        _cr, _cn, _cs = _ts["current"]
+        _cls = {"W": "win", "L": "loss"}.get(_cr, "")
+        _word = {"W": "win", "L": "loss", "T": "tie"}[_cr] + ("" if _cn == 1 else ("es" if _cr == "L" else "s"))
+        st.markdown(
+            '<div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">'
+            f'<div class="kpi-card"><div class="label">Current streak</div><div class="value {_cls}">{_cr}{_cn}</div>'
+            f'<div class="hint">{_cn} {_word} in a row · since {_cs}</div></div>'
+            f'<div class="kpi-card"><div class="label">Longest win streak</div><div class="value win">{_ts["W"][0]}</div>'
+            f'<div class="hint">{_span(_ts["W"][1])}</div></div>'
+            f'<div class="kpi-card"><div class="label">Longest losing streak</div><div class="value loss">{_ts["L"][0]}</div>'
+            f'<div class="hint">{_span(_ts["L"][1])}</div></div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
     tab_ovr, tab_lead, tab_cmp, tab_tbl, tab_log, tab_player = st.tabs(
         ["📈 Overview", "🏆 Leaders", "⚔️ Compare", "📊 Stats Table", "🗓️ Game Log", "👤 Player"]
     )
@@ -1529,11 +1617,33 @@ elif page == "🧢 My Stats":
     with _c_nm.expander("📷 Add or change photo (team login)"):
         if _team_gate("mystats"):
             _up = st.file_uploader("Choose a photo", type=["jpg", "jpeg", "png", "webp"], key=f"pp_{_me}")
-            if st.button("Save photo", disabled=_up is None, key="pp_save"):
+            _crop = None
+            if _up is not None:
+                import base64, io
+                from PIL import Image
+                _src = _upload_src(_up.file_id, _up.getvalue())
+                _w, _h = _src.size
+                st.caption("Crop it: zoom in, then slide to frame yourself. The preview shows the round photo and the card.")
+                _ck = f"{_me}_{_up.file_id}"  # new upload → sliders start fresh
+                _z = st.slider("🔍 Zoom", 1.0, 4.0, 1.0, 0.05, key=f"crop_z_{_ck}")
+                _x = st.slider("↔ Left / right", 0, 100, 50, disabled=_w <= _h and _z == 1.0, key=f"crop_x_{_ck}")
+                _y = st.slider("↕ Up / down", 0, 100, 35 if _h > _w else 50,
+                               disabled=_h <= _w and _z == 1.0, key=f"crop_y_{_ck}")
+                _crop = _square_crop(_src, _z, _x, _y).resize((600, 600), Image.LANCZOS)
+                _pb = io.BytesIO()
+                _crop.resize((300, 300), Image.LANCZOS).save(_pb, "JPEG", quality=85)
+                _pu = "data:image/jpeg;base64," + base64.b64encode(_pb.getvalue()).decode()
+                st.markdown(
+                    '<div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin:4px 0 10px">'
+                    f'<div style="text-align:center"><img class="avatar" src="{_pu}" style="width:120px;height:120px">'
+                    '<div style="font-size:11px;opacity:0.6;margin-top:4px">Round photo</div></div>'
+                    f'<div style="text-align:center"><div style="width:120px;height:139px;border-radius:10px;'
+                    f'border:3px solid #e8789f;background:#272d3d url({_pu}) center 30% / cover no-repeat"></div>'
+                    '<div style="font-size:11px;opacity:0.6;margin-top:4px">Player card</div></div></div>',
+                    unsafe_allow_html=True)
+            if st.button("Save photo", disabled=_crop is None, key="pp_save"):
                 import io
-                from PIL import Image, ImageOps
-                _img = ImageOps.exif_transpose(Image.open(_up)).convert("RGB")
-                _img = ImageOps.fit(_img, (600, 600), centering=(0.5, 0.35))
+                _img = _crop
                 _buf = io.BytesIO()
                 _img.save(_buf, "JPEG", quality=88)
                 PLAYERS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1577,10 +1687,8 @@ elif page == "🧢 My Stats":
                "don't break a streak. Games you missed or had no at-bats in are skipped.")
 
     st.markdown("##### 🏅 Where you rank on the team")
-    _sf = totals["SF"] if "SF" in totals.columns else 0
-    _pa_all = totals["AB"] + totals["BB"] + _sf
-    _min_pa = 2 * len(games)
-    _qual = totals[_pa_all >= _min_pa].set_index("player")
+    _min_ab = qual_min_ab(len(games))
+    _qual = totals[totals["AB"] >= _min_ab].set_index("player")
     _all = totals.set_index("player")
     _sk_all = {p: _sk_cache.get(p) or player_streaks(all_games, p, walks_as_hits) for p in _all.index}
     _streak_df = pd.DataFrame({"GSTREAK": {p: v["games"]["best"] for p, v in _sk_all.items()},
@@ -1598,7 +1706,7 @@ elif page == "🧢 My Stats":
     for _col, _lab, _is_rate, _fmt, _src in _cats:
         _ser = _src[_col]
         if _me not in _ser.index:
-            _rows.append({"Category": _lab, "You": "—", "Rank": f"needs {_min_pa}+ PA", "Team leader": ""})
+            _rows.append({"Category": _lab, "You": "—", "Rank": f"needs {_min_ab}+ AB", "Team leader": ""})
             continue
         _v = _ser[_me]
         _rank = int((_ser > _v).sum()) + 1
@@ -1614,8 +1722,15 @@ elif page == "🧢 My Stats":
                                   f'{"T-" if _tied else ""}#{_rank}</span>'))
         if _rank == 1 and _v > 0:
             _leads.append(_lab)
-    _card_slot.markdown(_player_card_html(_me, _pos, active_team_name, _scope, _row, _st, _leads),
-                        unsafe_allow_html=True)
+    if _me in _qual.index:
+        _card_ranks = {k: rank_label(_qual[k], _me) for k in
+                       ["AVG", "OBP", "OPS", "G", "AB", "H", "HR", "RBI", "R", "2B", "3B", "BB"]}
+        _qnote = f"Ranked among {len(_qual)} players with {_min_ab}+ AB"
+    else:
+        _card_ranks = {}
+        _qnote = f"Not ranked yet: needs {_min_ab} AB ({int(_row['AB'])} so far)"
+    _card_slot.markdown(_player_card_html(_me, _pos, active_team_name, _scope, _row, _st, _leads,
+                                          _card_ranks, _qnote), unsafe_allow_html=True)
     if _leads:
         st.markdown("**👑 Leads the team in:** " + ", ".join(_leads))
     if _chips:
@@ -1625,8 +1740,8 @@ elif page == "🧢 My Stats":
         st.caption("No top-5 finishes yet in this selection. Keep swinging!")
     with st.expander("See every category"):
         st.dataframe(pd.DataFrame(_rows), hide_index=True, use_container_width=True)
-    st.caption(f"Top 5 shown. Rate stats (AVG, OBP, SLG, OPS) only rank players with {_min_pa}+ plate appearances "
-               "(2 per team game in this selection). Streak ranks use all games. Ties share a rank.")
+    st.caption(f"Top 5 shown. Rate stats (AVG, OBP, SLG, OPS) only rank players with {_min_ab}+ at-bats "
+               f"({QUAL_AB_PER_GAME:g} per team game in this selection). Streak ranks use all games. Ties share a rank.")
 
     _pp = pg[pg["player"] == _me].sort_values("game_id")
     _sumc = [c for c in ["AB", "1B", "2B", "3B", "HR_OTF", "HR_ITP", "BB", "SF", "R", "RBI", "K"] if c in _pp.columns]
