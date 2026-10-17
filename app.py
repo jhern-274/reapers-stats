@@ -418,22 +418,64 @@ def _player_photo(name: str):
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return PLAYERS_DIR / f"{slug}.jpg"
 
-def _avatar_html(name: str) -> str:
+def _file_ver(path: Path) -> tuple:
+    """(modified time, size) used as a cache key, so a cached result is dropped as soon as the file changes."""
+    try:
+        s = path.stat()
+        return (s.st_mtime_ns, s.st_size)
+    except OSError:
+        return (0, 0)
+
+@st.cache_data(show_spinner=False, max_entries=256)
+def _thumb(path: str, ver: tuple, max_px: int, webp: bool) -> bytes:
+    """The image shrunk to fit max_px × max_px. Pages show these instead of the full-size files.
+
+    WebP is smallest and is used for images embedded in HTML. st.image re-encodes anything that isn't
+    JPEG/PNG on every run, so images for it come out as JPEG, or PNG when they have transparency.
+    """
+    import io
+    from PIL import Image, ImageOps
+    img = ImageOps.exif_transpose(Image.open(path))
+    img.thumbnail((max_px, max_px))
+    alpha = "A" in img.getbands() or "transparency" in img.info
+    img = img.convert("RGBA" if alpha else "RGB")
+    buf = io.BytesIO()
+    if webp:
+        img.save(buf, "WEBP", quality=82, method=4)
+    elif alpha:
+        img.save(buf, "PNG", optimize=True)
+    else:
+        img.save(buf, "JPEG", quality=85, optimize=True, progressive=True)
+    return buf.getvalue()
+
+def _img_bytes(path: Path, max_px: int) -> bytes:
+    """Resized image for st.image. Keep max_px at or below the displayed width so Streamlit doesn't resize it again."""
+    return _thumb(str(path), _file_ver(path), max_px, False)
+
+def _img_uri(path: Path, max_px: int) -> str:
+    """Resized image as a data: URI for HTML."""
     import base64
+    return "data:image/webp;base64," + base64.b64encode(_thumb(str(path), _file_ver(path), max_px, True)).decode()
+
+def _avatar_html(name: str) -> str:
     p = _player_photo(name)
     if p.exists():
-        return f'<img class="avatar" src="data:image/jpeg;base64,{base64.b64encode(p.read_bytes()).decode()}" alt="{name}">'
+        return f'<img class="avatar" src="{_img_uri(p, 300)}" alt="{name}">'
     initials = "".join(w[0] for w in name.split()[:2]).upper()
     return f'<div class="avatar ph">{initials}</div>'
 
-def _logo_b64() -> str:
-    import base64
-    return base64.b64encode(LOGO_FILE.read_bytes()).decode() if LOGO_FILE.exists() else ""
+def _logo_uri() -> str:
+    return _img_uri(LOGO_FILE, 520) if LOGO_FILE.exists() else ""
+
+@st.cache_data(show_spinner=False, max_entries=64)
+def _read_json(path: str, ver: tuple):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 def _load(path: Path, default):
+    """Parsed JSON, cached until the file changes. Every call gets its own copy, so editing it is safe."""
     if path.exists():
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            return _read_json(str(path), _file_ver(path))
         except Exception:
             return default
     return default
@@ -797,6 +839,10 @@ def render_stats_table(table: pd.DataFrame) -> None:
         unsafe_allow_html=True,
     )
 
+def _fmt3(cols) -> dict:
+    """column_config showing these columns to 3 decimals. Much faster than a pandas Styler."""
+    return {c: st.column_config.NumberColumn(format="%.3f") for c in cols}
+
 def _slug(name: str, existing: set) -> str:
     raw = re.sub(r'[^a-z0-9]+', '_', name.strip().lower()).strip('_') or "item"
     tid = raw
@@ -867,7 +913,7 @@ with st.sidebar:
             st.rerun()
 
     if LOGO_FILE.exists():
-        st.image(str(LOGO_FILE), use_container_width=True)
+        st.image(_img_bytes(LOGO_FILE, 600), use_container_width=True)
     else:
         st.markdown(f"## 💀 {active_team_name}")
 
@@ -928,8 +974,22 @@ elif active_event:
 else:
     games = all_games
 
-pg     = build_per_game_df(games, walks_as_hits)
-totals = season_totals(pg, walks_as_hits) if not pg.empty else pd.DataFrame()
+@st.cache_data(show_spinner=False, max_entries=64)
+def _cached_stats(_games: list, key: tuple) -> tuple:
+    """Per-game rows and season totals. `key` names the data file version and the filters, so
+    the tables are rebuilt only when a game is saved or the selection changes."""
+    walks = key[-1]
+    pg = build_per_game_df(_games, walks)
+    return pg, (season_totals(pg, walks) if not pg.empty else pd.DataFrame())
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def _cached_streaks(_all_games: list, key: tuple) -> dict:
+    """Hit streaks for everyone who has played, keyed by data file version and the walks setting."""
+    names = {pa["player"] for g in _all_games for pa in g.get("plate_appearances", [])}
+    return {n: player_streaks(_all_games, n, key[-1]) for n in names}
+
+_data_ver = (str(_games_file(active_team_id)), _file_ver(_games_file(active_team_id)))
+pg, totals = _cached_stats(games, (*_data_ver, active_tournament_id, active_event, walks_as_hits))
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: DASHBOARD
@@ -957,8 +1017,8 @@ if page == "📊 Dashboard":
     g_badge = f'<span class="badge">{len(games)} game{"s" if len(games) != 1 else ""}</span>'
     d_badge = f'<span class="badge">Run diff {rf - ra:+d}</span>'
 
-    _lg = _logo_b64()
-    _hero_title = (f'<img class="hero-logo" src="data:image/png;base64,{_lg}" alt="{active_team_name}">'
+    _lg = _logo_uri()
+    _hero_title = (f'<img class="hero-logo" src="{_lg}" alt="{active_team_name}">'
                    if _lg else f'<h1>💀 {active_team_name}</h1>')
     st.markdown(
         f'<div class="hero">{_hero_title}'
@@ -970,7 +1030,7 @@ if page == "📊 Dashboard":
 
     if not games:
         if PHOTO_FILE.exists():
-            st.image(str(PHOTO_FILE), width=360)
+            st.image(_img_bytes(PHOTO_FILE, 360), width=360)
         st.info("No games logged yet — go to **Log Game** to add your first game.")
         st.stop()
 
@@ -993,7 +1053,7 @@ if page == "📊 Dashboard":
         _recap_html += f'<div class="recent"><div class="title">Previous games</div>{_recent}</div>'
     if PHOTO_FILE.exists():
         col_img, col_rec = st.columns([1, 2])
-        col_img.image(str(PHOTO_FILE), use_container_width=True)
+        col_img.image(_img_bytes(PHOTO_FILE, 720), use_container_width=True)
         col_rec.markdown(_recap_html, unsafe_allow_html=True)
     else:
         st.markdown(_recap_html, unsafe_allow_html=True)
@@ -1238,7 +1298,7 @@ if page == "📊 Dashboard":
             cols += ["R", "RBI", "K", "AVG", "SLG", "OPS"]
             cols = [c for c in cols if c in pdf.columns]
             st.dataframe(
-                pdf[cols].style.format({c: "{:.3f}" for c in ["AVG", "SLG", "OPS"]}),
+                pdf[cols], column_config=_fmt3(["AVG", "SLG", "OPS"]),
                 hide_index=True, use_container_width=True,
             )
 
@@ -1327,11 +1387,6 @@ if page == "📊 Dashboard":
                 st.altair_chart(_alt_theme(_line_chart, dark_mode), use_container_width=True)
 
             # ── Per-tournament game tables with totals row ─────────────────────
-            def _bold_last(df):
-                out = pd.DataFrame("", index=df.index, columns=df.columns)
-                out.iloc[-1, :] = "font-weight:bold; border-top:2px solid rgba(128,128,128,0.35)"
-                return out
-
             for _tid in _seen_tids:
                 _grp = _pdf[_pdf["tournament_id"] == _tid].copy()
                 _tl  = _tlabel(_tid)
@@ -1347,7 +1402,7 @@ if page == "📊 Dashboard":
                 )
                 with st.expander(f"**{_tl}** — {len(_grp)} game(s)", expanded=True):
                     st.dataframe(
-                        _disp.style.format(_fmt).apply(_bold_last, axis=None),
+                        _disp, column_config=_fmt3(_fmt),
                         hide_index=True, use_container_width=True,
                     )
 
@@ -1405,7 +1460,8 @@ elif page == "🧢 My Stats":
     _kpis([("Hits", int(_row["H"])), ("Home runs", int(_row["HR"])), ("RBI", int(_row["RBI"])),
            ("Runs", int(_row["R"])), ("Walks", int(_row["BB"]))])
 
-    _st = player_streaks(all_games, _me, walks_as_hits)
+    _sk_cache = _cached_streaks(all_games, (*_data_ver, walks_as_hits))
+    _st = _sk_cache.get(_me) or player_streaks(all_games, _me, walks_as_hits)
 
     def _sp(sk, unit):
         cur = f"since {sk['current_since']}" if sk["current"] else "no active streak"
@@ -1429,7 +1485,7 @@ elif page == "🧢 My Stats":
     _min_pa = 2 * len(games)
     _qual = totals[_pa_all >= _min_pa].set_index("player")
     _all = totals.set_index("player")
-    _sk_all = {p: player_streaks(all_games, p, walks_as_hits) for p in _all.index}
+    _sk_all = {p: _sk_cache.get(p) or player_streaks(all_games, p, walks_as_hits) for p in _all.index}
     _streak_df = pd.DataFrame({"GSTREAK": {p: v["games"]["best"] for p, v in _sk_all.items()},
                                "ABSTREAK": {p: v["abs"]["best"] for p, v in _sk_all.items()}})
     _cats = [("AVG", "Batting average", True, "{:.3f}", _qual), ("OBP", "On-base %", True, "{:.3f}", _qual),
@@ -1483,7 +1539,7 @@ elif page == "🧢 My Stats":
     _tname = {t["id"]: t["name"] for t in tournaments}
     _bt.insert(0, "Tournament", _bt["tournament_id"].map(lambda t: _tname.get(t, "Regular season")))
     _bcols = [c for c in ["Tournament", "G", "AB", "H", "HR", "BB", "R", "RBI", "AVG", "OBP", "SLG", "OPS"] if c in _bt.columns]
-    st.dataframe(_bt[_bcols].style.format({c: "{:.3f}" for c in ["AVG", "OBP", "SLG", "OPS"]}),
+    st.dataframe(_bt[_bcols], column_config=_fmt3(["AVG", "OBP", "SLG", "OPS"]),
                  hide_index=True, use_container_width=True)
 
     st.markdown("##### Trend (cumulative)")
@@ -2919,7 +2975,7 @@ elif page == "📸 Photos":
         _cols = st.columns(3)
         for i, p in enumerate(_pics):
             with _cols[i % 3]:
-                st.image(str(p), caption=_captions.get(p.name, ""), use_container_width=True)
+                st.image(_img_bytes(p, 900), caption=_captions.get(p.name, ""), use_container_width=True)
 
 elif page == "⚙️ Settings":
     st.markdown("## ⚙️ Settings")
