@@ -10,6 +10,11 @@
       "name": "Hector",
       "positions": [
         "2B"
+      ],
+      "photo_crop": [
+        1.2,
+        50,
+        56
       ]
     },
     {
