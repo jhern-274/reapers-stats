@@ -47,7 +47,12 @@
         "LF",
         "C"
       ],
-      "number": "21"
+      "number": "21",
+      "photo_crop": [
+        1.0,
+        50,
+        8
+      ]
     },
     {
       "name": "Matt",
