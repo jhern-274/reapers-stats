@@ -1,4 +1,5 @@
 
+import base64
 import json
 import math
 import re
@@ -523,6 +524,25 @@ def _avatar_html(name: str) -> str:
     initials = "".join(w[0] for w in name.split()[:2]).upper()
     return f'<div class="avatar ph">{initials}</div>'
 
+def _card_cells(row) -> list:
+    """(label, value, highlighted) for the 12 stats on the back of the player card."""
+    return [("AVG", f'{row["AVG"]:.3f}', True), ("OBP", f'{row["OBP"]:.3f}', True), ("OPS", f'{row["OPS"]:.3f}', True),
+            ("G", int(row["G"]), False), ("AB", int(row["AB"]), False), ("H", int(row["H"]), False),
+            ("HR", int(row["HR"]), False), ("RBI", int(row["RBI"]), False), ("R", int(row["R"]), False),
+            ("2B", int(row["2B"]), False), ("3B", int(row["3B"]), False), ("BB", int(row["BB"]), False)]
+
+@st.cache_data(show_spinner=False, max_entries=24)
+def _card_media(key: str, _d: dict) -> tuple:
+    """(GIF bytes, MP4 bytes or None) of the flipping card. `key` covers everything drawn, photo and logo
+    versions included, so a change to any of them makes a new animation."""
+    import card_export
+    from PIL import Image
+    d = dict(_d)
+    d["photo"] = Image.open(d["photo"]) if d.get("photo") else None
+    d["logo"] = Image.open(d["logo"]) if d.get("logo") else None
+    front, back = card_export.render_front(d), card_export.render_back(d)
+    return card_export.make_gif(front, back), card_export.make_mp4(front, back)
+
 def _player_card_html(name: str, positions: str, team: str, scope: str, row, streaks: dict, leads: list,
                       ranks: dict, qual_note: str, number: str = "") -> str:
     """Two-sided player card: photo on the front, stats on the back. Tapping the card flips it.
@@ -537,10 +557,7 @@ def _player_card_html(name: str, positions: str, team: str, scope: str, row, str
         pic = f'<div class="photo ph">{escape("".join(w[0] for w in name.split()[:2]).upper())}</div>'
     logo = f'<img class="logo" src="{_img_uri(LOGO_FILE, 200)}" alt="">' if LOGO_FILE.exists() else ""
     meta = " · ".join(x for x in (pos, escape(team)) if x)
-    cells = [("AVG", f'{row["AVG"]:.3f}', True), ("OBP", f'{row["OBP"]:.3f}', True), ("OPS", f'{row["OPS"]:.3f}', True),
-             ("G", int(row["G"]), False), ("AB", int(row["AB"]), False), ("H", int(row["H"]), False),
-             ("HR", int(row["HR"]), False), ("RBI", int(row["RBI"]), False), ("R", int(row["R"]), False),
-             ("2B", int(row["2B"]), False), ("3B", int(row["3B"]), False), ("BB", int(row["BB"]), False)]
+    cells = _card_cells(row)
 
     def _rk(k):
         lab = ranks.get(k)
@@ -1764,9 +1781,37 @@ elif page == "🧢 My Stats":
     else:
         _card_ranks = {}
         _qnote = f"Not ranked yet: needs {_min_ab} AB ({int(_row['AB'])} so far)"
+    _num = (_me_entry or {}).get("number", "")
     _card_slot.markdown(_player_card_html(_me, _pos, active_team_name, _scope, _row, _st, _leads,
-                                          _card_ranks, _qnote, (_me_entry or {}).get("number", "")),
-                        unsafe_allow_html=True)
+                                          _card_ranks, _qnote, _num), unsafe_allow_html=True)
+    with _card_slot:
+        _, _share_col, _ = st.columns([1, 2, 1])
+        with _share_col:
+            _share_key = f"share_{_me}"
+            if st.button("🎬 Make a shareable card", key=f"{_share_key}_btn", use_container_width=True,
+                         help="A looping animation of your card (front 3 s, flip, back 3 s) to download and send."):
+                st.session_state[_share_key] = True
+            if st.session_state.get(_share_key):
+                _photo = _player_photo(_me)
+                _d = {"name": _me, "positions": _pos, "team": active_team_name, "number": _num, "scope": _scope,
+                      "cells": [(k, v, _card_ranks.get(k, ""), hi) for k, v, hi in _card_cells(_row)],
+                      "streaks": {"games": _st["games"]["best"], "abs": _st["abs"]["best"]},
+                      "leads": _leads, "qual_note": _qnote,
+                      "photo": str(_photo) if _photo.exists() else "", "logo": str(LOGO_FILE) if LOGO_FILE.exists() else ""}
+                _key = json.dumps([_d, _file_ver(_photo), _file_ver(LOGO_FILE)], default=str)
+                with st.spinner("Making your card… (a few seconds)"):
+                    _gif, _mp4 = _card_media(_key, _d)
+                # GIF preview: it animates in every browser, where autoplaying video can be blocked
+                st.markdown(f'<img src="data:image/gif;base64,{base64.b64encode(_gif).decode()}" '
+                            f'alt="{_me} card animation" style="width:100%;border-radius:12px">', unsafe_allow_html=True)
+                _fn = re.sub(r"[^a-z0-9]+", "-", _me.lower()).strip("-") + "-reapers-card"
+                _dl1, _dl2 = st.columns(2)
+                _dl1.download_button("⬇️ GIF", _gif, f"{_fn}.gif", "image/gif", use_container_width=True,
+                                     key=f"{_share_key}_gif", help="Plays automatically in texts and group chats.")
+                if _mp4:
+                    _dl2.download_button("⬇️ Video (MP4)", _mp4, f"{_fn}.mp4", "video/mp4", use_container_width=True,
+                                         key=f"{_share_key}_mp4", help="Sharper. Best for Instagram or WhatsApp status.")
+                st.caption("On a phone: download it, then share from your Photos or Files app.")
     if _leads:
         st.markdown("**👑 Leads the team in:** " + ", ".join(_leads))
     if _chips:

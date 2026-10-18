@@ -3,3 +3,4 @@ pandas>=2.0
 altair>=5.0
 streamlit-sortables>=0.3.1
 requests>=2.28
+imageio-ffmpeg>=0.4
