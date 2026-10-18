@@ -244,6 +244,14 @@ CSS = """
 .trophy .m { font-size: 34px; line-height: 1.1; }
 .trophy .ti { font-size: 13px; font-weight: 700; margin-top: 4px; line-height: 1.25; }
 .trophy .v { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; color: var(--medal); }
+.award-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.award-card { border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; padding: 12px 14px;
+  background: rgba(255,255,255,0.03); }
+.award-card h4 { margin: 0 0 8px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.65; font-weight: 700; }
+.award-row { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 14px; }
+.award-row .md { width: 22px; text-align: center; }
+.award-row .nm { flex: 1; font-weight: 600; }
+.award-row .vl { font-variant-numeric: tabular-nums; font-weight: 700; opacity: 0.9; }
 .pcard-hint { font-size: 12px; opacity: 0.55; margin-top: 8px; }
 .recent { margin: 4px 0 8px; }
 .recent .title { font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
@@ -410,6 +418,7 @@ LIGHT_CSS = """
 .kpi-card .hint  { color:rgba(0,0,0,0.38)!important }
 .kpi-card .value.win  { color:#1a7a3a!important }
 .trophy { background:#ffffff!important; color:#1a1a1a!important; border-color:rgba(0,0,0,0.08)!important }
+.award-card { background:#ffffff!important; color:#1a1a1a!important; border-color:rgba(0,0,0,0.08)!important }
 .trophy.p1 { --medal:#b8860b } .trophy.p2 { --medal:#6b7280 } .trophy.p3 { --medal:#a0522d }
 .trophy-sum .pill { background:#ffffff!important; color:#1a1a1a!important; border-color:rgba(0,0,0,0.1)!important }
 .kpi-card .value.loss { color:#a02020!important }
@@ -1122,7 +1131,7 @@ with st.sidebar:
                 if t["id"] == cur_tourn:
                     tourn_idx = i + 1
                     break
-        sel_tourn = st.selectbox("🏆 Tournament", tourn_opts, index=tourn_idx)
+        sel_tourn = st.selectbox("🏆 Tournament", tourn_opts, index=tourn_idx, key="sb_tournament")
         if sel_tourn == "All Tournaments":
             st.session_state.active_tournament_id = None
         else:
@@ -1218,7 +1227,7 @@ def _cached_awards(_all_games: list, _tournaments: list, key: tuple) -> dict:
                 if place > 3:
                     continue
                 out.setdefault(who, []).append({
-                    "tid": t["id"], "tname": t["name"], "date": first.get(t["id"], ""), "col": col,
+                    "tid": t["id"], "tname": t["name"], "date": first.get(t["id"], ""), "col": col, "label": label,
                     "title": award_title(place, int((ser == v).sum()) > 1, label, rate),
                     "place": place, "value": f"{v:.3f}" if rate else f"{int(v)}", "rate": rate})
     return out
@@ -1338,8 +1347,8 @@ if page == "📊 Dashboard":
             unsafe_allow_html=True,
         )
 
-    tab_ovr, tab_lead, tab_cmp, tab_tbl, tab_log, tab_player = st.tabs(
-        ["📈 Overview", "🏆 Leaders", "⚔️ Compare", "📊 Stats Table", "🗓️ Game Log", "👤 Player"]
+    tab_ovr, tab_lead, tab_cmp, tab_tbl, tab_log, tab_player, tab_awards = st.tabs(
+        ["📈 Overview", "🏆 Leaders", "⚔️ Compare", "📊 Stats Table", "🗓️ Game Log", "👤 Player", "🎖️ Awards"]
     )
 
     with tab_ovr:
@@ -1659,6 +1668,55 @@ if page == "📊 Dashboard":
                         _disp, column_config=_fmt3(_fmt),
                         hide_index=True, use_container_width=True,
                     )
+
+    with tab_awards:
+        _by_player = _cached_awards(all_games, tournaments, (*_data_ver, walks_as_hits))
+        _won = [dict(a, player=p) for p, aw in _by_player.items() for a in aw]
+        _aw_tids = list(dict.fromkeys(a["tid"] for a in sorted(_won, key=lambda a: a["date"], reverse=True)))
+        if not _aw_tids:
+            st.info("No awards yet. They're handed out per tournament once games are logged.")
+        else:
+            from html import escape as _esc
+            _tn = {a["tid"]: a["tname"] for a in _won}
+            # follow the sidebar: when its pick changes, jump to that tournament, else the newest in its event
+            _side = (active_tournament_id, active_event)
+            if st.session_state.get("_awards_side") != _side or st.session_state.get("awards_tourn") not in _aw_tids:
+                st.session_state["_awards_side"] = _side
+                _in_event = [t for t in _aw_tids if active_event is None or _tid_event.get(t) == active_event]
+                st.session_state["awards_tourn"] = (active_tournament_id if active_tournament_id in _aw_tids
+                                                    else (_in_event or _aw_tids)[0])
+            _pick = st.selectbox("Tournament", _aw_tids, format_func=_tn.get, key="awards_tourn")
+            _ta = [a for a in _won if a["tid"] == _pick]
+
+            # medal table: most trophies at this tournament (golds first, then silvers, bronzes)
+            _medals = {}
+            for a in _ta:
+                _medals.setdefault(a["player"], [0, 0, 0])[a["place"] - 1] += 1
+            _mt = sorted(_medals.items(), key=lambda kv: (-kv[1][0], -kv[1][1], -kv[1][2], kv[0].lower()))
+            st.markdown("##### 🏅 Medal table")
+            st.markdown('<div class="trophy-sum">' + "".join(
+                f'<span class="pill">{_esc(p)} · 🥇{m[0]} 🥈{m[1]} 🥉{m[2]}</span>' for p, m in _mt[:8])
+                + "</div>", unsafe_allow_html=True)
+
+            st.markdown("##### 🎖️ Awards by category")
+            _cards = ""
+            for col, label, rate in AWARD_CATS:
+                _ca = [a for a in _ta if a["col"] == col]
+                if not _ca:
+                    continue
+                _rows = ""
+                for place in (1, 2, 3):
+                    _pa = sorted((a for a in _ca if a["place"] == place), key=lambda a: a["player"].lower())
+                    if _pa:
+                        _rows += (f'<div class="award-row"><span class="md">{MEDALS[place]}</span>'
+                                  f'<span class="nm">{_esc(", ".join(a["player"] for a in _pa))}</span>'
+                                  f'<span class="vl">{_pa[0]["value"]}</span></div>')
+                _title = ("Best " if rate else "Most ") + label
+                _cards += f'<div class="award-card"><h4>{_esc(_title)}</h4>{_rows}</div>'
+            st.markdown(f'<div class="award-grid">{_cards}</div>', unsafe_allow_html=True)
+            st.caption(f"Top 3 on the team in each category for this tournament. AVG, OBP, SLG and OPS need "
+                       f"{QUAL_AB_PER_GAME:g} at-bats per game played in the tournament; counting stats are open "
+                       "to everyone. Ties share a medal. Each player's trophies are in their Trophy case on My Stats.")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: ROSTER
