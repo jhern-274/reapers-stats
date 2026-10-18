@@ -58,6 +58,11 @@
       "name": "Matt",
       "positions": [
         "RF"
+      ],
+      "photo_crop": [
+        1.0,
+        50,
+        50
       ]
     },
     {
