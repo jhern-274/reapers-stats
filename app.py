@@ -230,6 +230,20 @@ CSS = """
 .pcard-back .cell .r.top { color: #f0a0bc; opacity: 1; }
 .pcard-back .foot { margin-top: auto; padding-top: 6px; font-size: 10.5px; line-height: 1.4; }
 .pcard-back .foot b { color: #f0a0bc; }
+.trophy-sum { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
+.trophy-sum .pill { padding: 6px 14px; border-radius: 999px; font-weight: 800; font-size: 15px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
+.trophy-t { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.65; font-weight: 700;
+  margin: 14px 0 6px; }
+.trophy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.trophy { border-radius: 12px; padding: 12px 12px 10px; text-align: center; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.09); border-top: 3px solid var(--medal); }
+.trophy.p1 { --medal: #f5c451; background: linear-gradient(180deg, rgba(245,196,81,0.13), rgba(255,255,255,0.02)); }
+.trophy.p2 { --medal: #c9d1dc; background: linear-gradient(180deg, rgba(201,209,220,0.11), rgba(255,255,255,0.02)); }
+.trophy.p3 { --medal: #d39064; background: linear-gradient(180deg, rgba(211,144,100,0.12), rgba(255,255,255,0.02)); }
+.trophy .m { font-size: 34px; line-height: 1.1; }
+.trophy .ti { font-size: 13px; font-weight: 700; margin-top: 4px; line-height: 1.25; }
+.trophy .v { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; color: var(--medal); }
 .pcard-hint { font-size: 12px; opacity: 0.55; margin-top: 8px; }
 .recent { margin: 4px 0 8px; }
 .recent .title { font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
@@ -395,6 +409,9 @@ LIGHT_CSS = """
 .kpi-card .label { color:rgba(0,0,0,0.50)!important }
 .kpi-card .hint  { color:rgba(0,0,0,0.38)!important }
 .kpi-card .value.win  { color:#1a7a3a!important }
+.trophy { background:#ffffff!important; color:#1a1a1a!important; border-color:rgba(0,0,0,0.08)!important }
+.trophy.p1 { --medal:#b8860b } .trophy.p2 { --medal:#6b7280 } .trophy.p3 { --medal:#a0522d }
+.trophy-sum .pill { background:#ffffff!important; color:#1a1a1a!important; border-color:rgba(0,0,0,0.1)!important }
 .kpi-card .value.loss { color:#a02020!important }
 .leader-card { background:#ffffff!important; color:#1a1a1a!important }
 .leader-row .val { color:#1a1a1a!important }
@@ -1162,6 +1179,50 @@ def _cached_streaks(_all_games: list, key: tuple) -> dict:
     names = {pa["player"] for g in _all_games for pa in g.get("plate_appearances", [])}
     return {n: player_streaks(_all_games, n, key[-1]) for n in names}
 
+# Tournament trophies: top 3 in each category, per tournament.
+# (column, short name, rate stat?) — rate stats need the at-bat minimum; counting stats are open to everyone.
+AWARD_CATS = [("AVG", "batting average", True), ("OBP", "on-base %", True), ("SLG", "slugging", True),
+              ("OPS", "OPS", True), ("H", "hits", False), ("2B", "doubles", False), ("3B", "triples", False),
+              ("HR", "home runs", False), ("RBI", "RBI", False), ("R", "runs", False), ("TB", "total bases", False)]
+MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+def award_title(place: int, tied: bool, label: str, rate: bool) -> str:
+    """e.g. "Best batting average", "3rd most RBI", "Tied for most home runs"."""
+    word = "best" if rate else "most"
+    core = word if place == 1 else f"{_ordinal(place)} {word}"
+    return (f"Tied for {core}" if tied else core[0].upper() + core[1:]) + f" {label}"
+
+@st.cache_data(show_spinner=False, max_entries=8)
+def _cached_awards(_all_games: list, _tournaments: list, key: tuple) -> dict:
+    """player -> trophies won across every tournament, newest tournament first.
+    Each trophy: dict(tid, tname, date, col, title, place, value, rate)."""
+    walks = key[-1]
+    first = {}
+    for g in _all_games:
+        t = g.get("tournament_id")
+        if t and (t not in first or g.get("date", "") < first[t]):
+            first[t] = g.get("date", "")
+    out = {}
+    for t in sorted(_tournaments, key=lambda t: first.get(t["id"], ""), reverse=True):
+        tg = [g for g in _all_games if g.get("tournament_id") == t["id"]]
+        tpg = build_per_game_df(tg, walks)
+        if tpg.empty:
+            continue
+        tot = season_totals(tpg, walks).set_index("player")
+        qual = tot[tot["AB"] >= qual_min_ab(len(tg))]
+        for col, label, rate in AWARD_CATS:
+            ser = (qual if rate else tot)[col]
+            ser = ser[ser > 0]
+            for who, v in ser.items():
+                place = int((ser > v).sum()) + 1
+                if place > 3:
+                    continue
+                out.setdefault(who, []).append({
+                    "tid": t["id"], "tname": t["name"], "date": first.get(t["id"], ""), "col": col,
+                    "title": award_title(place, int((ser == v).sum()) > 1, label, rate),
+                    "place": place, "value": f"{v:.3f}" if rate else f"{int(v)}", "rate": rate})
+    return out
+
 _data_ver = (str(_games_file(active_team_id)), _file_ver(_games_file(active_team_id)))
 pg, totals = _cached_stats(games, (*_data_ver, active_tournament_id, active_event, walks_as_hits))
 
@@ -1826,6 +1887,30 @@ elif page == "🧢 My Stats":
 
     _pp = pg[pg["player"] == _me].sort_values("game_id")
     _sumc = [c for c in ["AB", "1B", "2B", "3B", "HR_OTF", "HR_ITP", "BB", "SF", "R", "RBI", "K"] if c in _pp.columns]
+
+    st.markdown("##### 🏆 Trophy case")
+    _awards = _cached_awards(all_games, tournaments, (*_data_ver, walks_as_hits)).get(_me, [])
+    if not _awards:
+        st.caption("No trophies yet. Finish top 3 on the team in a tournament (hits, HR, RBI, AVG and more) to earn one.")
+    else:
+        from html import escape as _esc
+        _cnt = {k: sum(a["place"] == k for a in _awards) for k in (1, 2, 3)}
+        st.markdown('<div class="trophy-sum">' + "".join(
+            f'<span class="pill">{MEDALS[k]} {_cnt[k]}</span>' for k in (1, 2, 3))
+            + (lambda n: f'<span class="pill">{n} tournament{"" if n == 1 else "s"}</span></div>')(
+                len({a["tid"] for a in _awards})),
+            unsafe_allow_html=True)
+        _html = ""
+        for _tid in dict.fromkeys(a["tid"] for a in _awards):
+            _ta = sorted((a for a in _awards if a["tid"] == _tid), key=lambda a: (a["place"], not a["rate"]))
+            _html += (f'<div class="trophy-t">{_esc(_ta[0]["tname"])}</div><div class="trophy-grid">' + "".join(
+                f'<div class="trophy p{a["place"]}"><div class="m">{MEDALS[a["place"]]}</div>'
+                f'<div class="ti">{_esc(a["title"])}</div><div class="v">{a["value"]}</div></div>' for a in _ta)
+                + "</div>")
+        st.markdown(_html, unsafe_allow_html=True)
+    st.caption(f"Top 3 on the team in each tournament. AVG, OBP, SLG and OPS need {QUAL_AB_PER_GAME:g} at-bats per "
+               "game in that tournament; counting stats are open to everyone. Ties share a trophy. "
+               "Covers every tournament, whatever the sidebar filter says.")
 
     st.markdown("##### By tournament")
     _bt = _pp.groupby("tournament_id", sort=False)[_sumc].sum()
